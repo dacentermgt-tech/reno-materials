@@ -14,9 +14,7 @@
 <div id="root"></div>
 <script>
 const firebaseConfig={apiKey:"AIzaSyA4ODk4lki5NiLgjQyfZN961rhkmcTPAuc",authDomain:"reno-materials-order-form.firebaseapp.com",projectId:"reno-materials-order-form",storageBucket:"reno-materials-order-form.firebasestorage.app",messagingSenderId:"182946152456",appId:"1:182946152456:web:c513f3862d020642acd1bd"};
-firebase.initializeApp(firebaseConfig);
-const db=firebase.firestore();
-const COLL="storage";
+firebase.initializeApp(firebaseConfig);const db=firebase.firestore();const COLL="storage";
 function ekey(k){return k.replace(/[/]/g,"__S__");}
 window.storage={
   get:async function(k){try{var d=await db.collection(COLL).doc(ekey(k)).get();if(!d.exists)return null;return{key:k,value:d.data().value};}catch(e){return null;}},
@@ -383,6 +381,7 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols
         <span style={{fontWeight:700,fontSize:14,color:"#0f172a",flex:1,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>{active.name}</span>
         {saving&&<span style={{fontSize:11,color:"#94a3b8"}}>Saving...</span>}
         <button onClick={()=>exportToExcel(active)} style={{...bsty,background:"#f1f5f9",color:"#64748b",fontSize:12}}>Export XLS</button>
+        <button onClick={()=>setShowNotes(function(v){return !v;})} style={{...bsty,background:showNotes?"#0f172a":"#f1f5f9",color:showNotes?"#fff":"#64748b",fontSize:12}}>{showNotes?"Hide Notes":"Notes"}</button>
       </div>
       <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"0 20px",display:"flex",alignItems:"center",gap:0}}>
         {["items","financial","email","contacts"].map(t=>(
@@ -435,7 +434,7 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                   {[{id:"component",label:"Component"},{id:"material",label:"Item Desc"},{id:"description",label:"Client Desc"},{id:"vendor",label:"Vendor"},{id:"brand",label:"Brand"},{id:"color",label:"Color"},{id:"finish",label:"Finish"},{id:"width",label:"Width"},{id:"height",label:"Height"},{id:"depth",label:"Depth"},{id:"qty",label:"Qty"},{id:"leadTime",label:"Lead Time"},{id:"status",label:"Status"},{id:"notes",label:"Notes"}].map(col=>{
                     const on=visibleCols.includes(col.id);
-                    return <button key={col.id} onClick={()=>setVisibleCols(v=>on?v.filter(c=>c!==col.id):[...v,col.id])} style={{fontSize:12,borderRadius:20,padding:"3px 10px",border:on?"none":"0.5px solid #e2e8f0",background:on?"#0f172a":"#f8fafc",color:on?"#fff":"#64748b",cursor:"pointer"}}>{col.label}</button>;
+                    return <button key={col.id} onClick={()=>{var next=on?visibleCols.filter(c=>c!==col.id):[...visibleCols,col.id];setVisibleCols(next);onSaveVisibleCols(next);}} style={{fontSize:12,borderRadius:20,padding:"3px 10px",border:on?"none":"0.5px solid #e2e8f0",background:on?"#0f172a":"#f8fafc",color:on?"#fff":"#64748b",cursor:"pointer"}}>{col.label}</button>;
                   })}
                 </div>
               </div>
