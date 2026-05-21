@@ -304,7 +304,7 @@ function ProjectScreen({active,vendors,saving,apiKey,onBack,updateActive}) {
 
   const applyImport=()=>{if(!importState||!importState.items.length)return;updateActive(p=>({...p,items:[...p.items,...importState.items]}));setImportState(null);};
   const addContact=()=>{if(!contactForm.name.trim()||!contactForm.email.trim())return;const c={...contactForm,id:"c-"+Date.now()};updateActive(p=>({...p,contacts:[...p.contacts,c]}));setShowContactForm(false);setContactForm({name:"",email:"",type:"vendor"});};
-  const emailText=active?buildEmail(active,selectedContacts,selectedItems):"";
+  const emailText=active&&selectedItems?buildEmail(active,selectedContacts,selectedItems):"";
   const rooms=[...new Set(active.items.map(it=>it.room||"Unassigned"))];
 
   return (
@@ -317,7 +317,7 @@ function ProjectScreen({active,vendors,saving,apiKey,onBack,updateActive}) {
       </div>
       <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"0 20px",display:"flex",gap:0}}>
         {["items","email","contacts"].map(t=>(
-          <button key={t} onClick={()=>setTab(t)} style={{padding:"10px 16px",border:"none",borderBottom:tab===t?"2px solid #0f172a":"2px solid transparent",background:"none",cursor:"pointer",fontSize:13,fontWeight:tab===t?600:400,color:tab===t?"#0f172a":"#64748b",textTransform:"capitalize"}}>
+          <button key={t} onClick={()=>{setTab(t);if(t==="email")setSelectedItems(active.items.map(it=>it.id));}} style={{padding:"10px 16px",border:"none",borderBottom:tab===t?"2px solid #0f172a":"2px solid transparent",background:"none",cursor:"pointer",fontSize:13,fontWeight:tab===t?600:400,color:tab===t?"#0f172a":"#64748b",textTransform:"capitalize"}}>
             {t==="items"?"Items ("+active.items.length+")":t==="email"?"Quote Email":"Contacts ("+active.contacts.length+")"}
           </button>
         ))}
@@ -382,28 +382,15 @@ function ProjectScreen({active,vendors,saving,apiKey,onBack,updateActive}) {
               </div>
               <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:14}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                  <span style={{fontSize:13,fontWeight:600,color:"#0f172a"}}>Items ({selectedItems.length===0?active.items.length:selectedItems.length} selected)</span>
-                  <button onClick={()=>setSelectedItems(selectedItems.length===0?active.items.map(it=>it.id):[])} style={{fontSize:12,color:"#64748b",background:"none",border:"none",cursor:"pointer"}}>{selectedItems.length===0?"Deselect all":"Select all"}</button>
+                  <span style={{fontSize:13,fontWeight:600,color:"#0f172a"}}>Items ({selectedItems.length} selected)</span>
+                  <button onClick={()=>setSelectedItems(s=>s.length===active.items.length?[]:active.items.map(it=>it.id))} style={{fontSize:12,color:"#64748b",background:"none",border:"none",cursor:"pointer"}}>{selectedItems.length===active.items.length?"Deselect all":"Select all"}</button>
                 </div>
                 <div style={{maxHeight:200,overflowY:"auto"}}>
                   {active.items.map(it=>{
-                    const checked=selectedItems.length===0||selectedItems.includes(it.id);
+                    const checked=selectedItems.includes(it.id);
                     return (
                       <label key={it.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",cursor:"pointer",borderBottom:"1px solid #f1f5f9"}}>
-                        <input type="checkbox" checked={checked} onChange={()=>{
-                          if(selectedItems.length===0){
-                            // currently all selected - uncheck this one means select all except this
-                            setSelectedItems(active.items.map(x=>x.id).filter(x=>x!==it.id));
-                          } else if(selectedItems.includes(it.id)){
-                            // uncheck - if only one left, go back to all selected (empty)
-                            const next=selectedItems.filter(x=>x!==it.id);
-                            setSelectedItems(next.length===0?[]:next);
-                          } else {
-                            // check - add to selection, if now all selected go back to empty
-                            const next=[...selectedItems,it.id];
-                            setSelectedItems(next.length===active.items.length?[]:next);
-                          }
-                        }} style={{accentColor:"#0f172a"}}/>
+                        <input type="checkbox" checked={checked} onChange={()=>setSelectedItems(s=>s.includes(it.id)?s.filter(x=>x!==it.id):[...s,it.id])} style={{accentColor:"#0f172a"}}/>
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{fontSize:12,fontWeight:500,color:"#0f172a",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{it.material||"(no name)"}</div>
                           {it.room&&<div style={{fontSize:11,color:"#94a3b8"}}>{it.room}</div>}
