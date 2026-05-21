@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RenoMaterials</title>
   <meta name="description" content="Renovation materials order manager — synced across all devices." />
+  <meta name="theme-color" content="#B5763A" />
 
   <!-- React & ReactDOM -->
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -16,7 +17,7 @@
   <!-- SheetJS for Excel import/export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 
-  <!-- Firebase (compat SDK — works without bundler) -->
+  <!-- Firebase (compat SDK) -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
@@ -30,7 +31,6 @@
 <body>
   <div id="root"></div>
 
-  <!-- Firebase init + storage shim -->
   <script>
 
 // ─── Firebase setup ───────────────────────────────────────────
@@ -47,7 +47,11 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const COLLECTION = "storage";
 
-// ─── storage shim — same API, backed by Firestore ─────────────
+function encodeKey(key) {
+  return key.replace(/\//g, "__SLASH__");
+}
+
+// ─── storage shim — maps window.storage API to Firestore ──────
 window.storage = {
   get: async (key) => {
     try {
@@ -79,14 +83,8 @@ window.storage = {
   }
 };
 
-function encodeKey(key) {
-  // Firestore doc IDs can't contain / so encode it
-  return key.replace(/\//g, "__SLASH__");
-}
-
   </script>
 
-  <!-- App -->
   <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
 
