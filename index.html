@@ -289,18 +289,20 @@ function ProjectScreen({active,vendors,saving,apiKey,onBack,updateActive}) {
     setParsingPdf(true);
     try{
       const base64=await new Promise((res,rej)=>{const r=new FileReader();r.onload=ev=>res(ev.target.result.split(",")[1]);r.onerror=rej;r.readAsDataURL(file);});
-      const response=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:8000,messages:[{role:"user",content:[{type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}},{type:"text",text:"You are a data extraction tool. Extract every material/product item from this FF&E schedule or materials list PDF.\n\nYou MUST respond with ONLY a valid JSON array. No introduction, no explanation, no markdown code blocks. Start your response with [ and end with ].\n\nEach item in the array must be an object with these exact keys (use empty string if not found):\ncomponent, room, material, description, vendor, brand, color, finish, qty, unit, width, height, depth, leadTime, notes\n\nwhere:\n- material = the item name or product description\n- description = detailed specification or client description\n- component = item code like AC-01 or similar\n\nExtract ALL rows. Begin your response with [ now."}]}]})});
-      const data=await response.json();
-      if(data.error)throw new Error(data.error.message);
-      const text=data.content&&data.content.map(c=>c.text||"").join("");
-      let clean=text.replace(/```json|```/g,"").trim();
-      const arrStart=clean.indexOf("[");
-      const arrEnd=clean.lastIndexOf("]");
-      if(arrStart===-1||arrEnd===-1)throw new Error("Model returned: "+clean.slice(0,200));
-      clean=clean.slice(arrStart,arrEnd+1);
-      const parsed=JSON.parse(clean);
-      const items=parsed.map((it,i)=>({...mkItem(),id:"pdf-"+Date.now()+"-"+i,...it}));
-      setImportState({items,warnings:[],fileName:file.name});
+      // Step 1: extract structured text from PDF
+      const r1=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:"claude-sonnet-4-6",max_tokens:16000,messages:[{role:"user",content:[{type:"document",source:{type:"base64",media_type:"application/pdf",data:base64}},{type:"text",text:"Extract all rows from this FF&E or materials schedule table. For each row output one line in this exact format (skip header rows and empty rows):\nCOMPONENT|ROOM|ITEM_DESCRIPTION|VENDOR|CLIENT_DESCRIPTION\n\nOutput ONLY the pipe-separated lines, nothing else."}]}]})});
+      const d1=await r1.json();
+      if(d1.error)throw new Error(d1.error.message);
+      const rawText=d1.content&&d1.content.map(c=>c.text||"").join("").trim();
+      if(!rawText)throw new Error("No text extracted from PDF");
+      // Step 2: parse the pipe-separated lines into items
+      const lines=rawText.split("\n").filter(l=>l.includes("|"));
+      if(!lines.length)throw new Error("No table rows found in PDF");
+      const items=lines.map((line,i)=>{
+        const parts=line.split("|").map(p=>p.trim());
+        return {...mkItem(),id:"pdf-"+Date.now()+"-"+i,component:parts[0]||"",room:parts[1]||"",material:parts[2]||"",vendor:parts[3]||"",description:parts[4]||""};
+      }).filter(it=>it.material||it.component);
+      setImportState({items,warnings:items.length?[]:[rawText.slice(0,200)],fileName:file.name});
     }catch(err){alert("PDF parsing failed: "+err.message);}
     setParsingPdf(false);e.target.value="";
   };
