@@ -264,6 +264,8 @@ function ProjectScreen({active,vendors,saving,apiKey,onBack,updateActive}) {
   const [showContactForm,setShowContactForm]=useState(false);
   const [showVendorPicker,setShowVendorPicker]=useState(false);
   const [contactForm,setContactForm]=useState({name:"",email:"",type:"vendor"});
+  const [showColPicker,setShowColPicker]=useState(false);
+  const [visibleCols,setVisibleCols]=useState(["component","material","vendor","brand","width","height","depth","qty","leadTime","status"]);
   const fileRef=useRef();
   const pdfRef=useRef();
 
@@ -332,8 +334,21 @@ function ProjectScreen({active,vendors,saving,apiKey,onBack,updateActive}) {
               <Btn small ghost onClick={()=>fileRef.current&&fileRef.current.click()} label={importing?"Reading...":"Import Excel"}/>
               <input ref={pdfRef} type="file" accept="application/pdf" style={{display:"none"}} onChange={handlePdf}/>
               <Btn small ghost onClick={()=>pdfRef.current&&pdfRef.current.click()} label={parsingPdf?"Reading PDF...":"Import PDF"}/>
+              <Btn small ghost onClick={()=>setShowColPicker(v=>!v)} label="Columns"/>
               {!apiKey&&<span style={{fontSize:11,color:"#f59e0b"}}>Add API key in Settings (home screen) to enable PDF import</span>}
             </div>
+            {showColPicker&&(
+              <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:"12px 14px",marginBottom:10}}>
+                <div style={{fontSize:12,fontWeight:600,color:"#0f172a",marginBottom:8}}>Toggle visible columns</div>
+                <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                  {[{id:"component",label:"Component"},{id:"material",label:"Item Desc"},{id:"description",label:"Client Desc"},{id:"vendor",label:"Vendor"},{id:"brand",label:"Brand"},{id:"color",label:"Color"},{id:"finish",label:"Finish"},{id:"width",label:"Width"},{id:"height",label:"Height"},{id:"depth",label:"Depth"},{id:"qty",label:"Qty"},{id:"leadTime",label:"Lead Time"},{id:"status",label:"Status"},{id:"notes",label:"Notes"}].map(col=>{
+                    const on=visibleCols.includes(col.id);
+                    return <button key={col.id} onClick={()=>setVisibleCols(v=>on?v.filter(c=>c!==col.id):[...v,col.id])} style={{fontSize:12,borderRadius:20,padding:"3px 10px",border:on?"none":"0.5px solid #e2e8f0",background:on?"#0f172a":"#f8fafc",color:on?"#fff":"#64748b",cursor:"pointer"}}>{col.label}</button>;
+                  })}
+                </div>
+              </div>
+            )}
+
             {importState&&(
               <div style={{background:"#f0fdf4",border:"1px solid #bbf7d0",borderRadius:8,padding:12,marginBottom:12}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
@@ -358,7 +373,7 @@ function ProjectScreen({active,vendors,saving,apiKey,onBack,updateActive}) {
               </div>
             )}
             {rooms.map(room=>(
-              <RoomTable key={room} room={room} items={active.items.filter(it=>(it.room||"Unassigned")===room)} editId={editId} onEdit={setEditId} onUpdate={updateItem} onDelete={deleteItem} selectedItems={selectedItems} onToggleSelect={(id)=>setSelectedItems(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id])}/>
+              <RoomTable key={room} room={room} items={active.items.filter(it=>(it.room||"Unassigned")===room)} editId={editId} onEdit={setEditId} onUpdate={updateItem} onDelete={deleteItem} selectedItems={selectedItems} onToggleSelect={(id)=>setSelectedItems(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id])} visibleCols={visibleCols}/>
             ))}
           </div>
         )}
@@ -457,10 +472,27 @@ function ProjectScreen({active,vendors,saving,apiKey,onBack,updateActive}) {
   );
 }
 
-function RoomTable({room,items,editId,onEdit,onUpdate,onDelete,selectedItems,onToggleSelect}) {
+function RoomTable({room,items,editId,onEdit,onUpdate,onDelete,selectedItems,onToggleSelect,visibleCols}) {
   const [collapsed,setCollapsed]=useState(false);
-  const cols = "32px 40px 140px 1fr 90px 70px 55px 55px 55px 70px 80px 80px";
-  const headers = ["","#","Component","Item Description","Vendor","Brand","W","H","D","Qty","Lead Time","Status"];
+  const isMobile = window.innerWidth < 768;
+  const COL_DEFS = [
+    {id:"component",label:"Component",w:"120px"},
+    {id:"material",label:"Item Description",w:"1fr"},
+    {id:"description",label:"Client Desc",w:"120px"},
+    {id:"vendor",label:"Vendor",w:"90px"},
+    {id:"brand",label:"Brand",w:"70px"},
+    {id:"color",label:"Color",w:"70px"},
+    {id:"finish",label:"Finish",w:"70px"},
+    {id:"width",label:"W",w:"50px"},
+    {id:"height",label:"H",w:"50px"},
+    {id:"depth",label:"D",w:"50px"},
+    {id:"qty",label:"Qty",w:"70px"},
+    {id:"leadTime",label:"Lead Time",w:"80px"},
+    {id:"status",label:"Status",w:"80px"},
+  ];
+  const activeCols = COL_DEFS.filter(c=>visibleCols.includes(c.id));
+  const cols = "32px 36px " + activeCols.map(c=>c.w).join(" ");
+  const headers = ["","#",...activeCols.map(c=>c.label)];
   return (
     <div style={{marginBottom:16}}>
       <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"2px solid #0f172a"}}>
@@ -474,38 +506,75 @@ function RoomTable({room,items,editId,onEdit,onUpdate,onDelete,selectedItems,onT
           <div style={{display:"grid",gridTemplateColumns:cols,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>
             {headers.map((h,i)=><div key={i} style={{padding:"6px 8px",fontSize:10,fontWeight:600,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.5px",whiteSpace:"nowrap",overflow:"hidden"}}>{h}</div>)}
           </div>
-          {items.map((item,idx)=><ItemRow key={item.id} item={item} idx={idx} cols={cols} isEditing={editId===item.id} selected={selectedItems.includes(item.id)} onEdit={()=>onEdit(editId===item.id?null:item.id)} onUpdate={(patch)=>onUpdate(item.id,patch)} onDelete={()=>onDelete(item.id)} onToggleSelect={()=>onToggleSelect(item.id)}/>)}
+          {items.map((item,idx)=><ItemRow key={item.id} item={item} idx={idx} cols={cols} activeCols={activeCols} isMobile={isMobile} isEditing={editId===item.id} selected={selectedItems.includes(item.id)} onEdit={()=>onEdit(editId===item.id?null:item.id)} onUpdate={(patch)=>onUpdate(item.id,patch)} onDelete={()=>onDelete(item.id)} onToggleSelect={()=>onToggleSelect(item.id)}/>)}
         </div>
       )}
     </div>
   );
 }
 
-function ItemRow({item,idx,cols,isEditing,selected,onEdit,onUpdate,onDelete,onToggleSelect}) {
+function ItemRow({item,idx,cols,activeCols,isMobile,isEditing,selected,onEdit,onUpdate,onDelete,onToggleSelect}) {
   const sc=STATUS_CLR[item.status]||"#94a3b8";
+  const getVal = (id) => {
+    if(id==="component") return item.component||"-";
+    if(id==="material") return item.material||"(tap to edit)";
+    if(id==="description") return item.description||"-";
+    if(id==="vendor") return item.vendor||"-";
+    if(id==="brand") return item.brand||"-";
+    if(id==="color") return item.color||"-";
+    if(id==="finish") return item.finish||"-";
+    if(id==="width") return item.width||"-";
+    if(id==="height") return item.height||"-";
+    if(id==="depth") return item.depth||"-";
+    if(id==="qty") return item.qty?item.qty+" "+item.unit:"-";
+    if(id==="leadTime") return item.leadTime||"-";
+    if(id==="status") return item.status||"Draft";
+    return "-";
+  };
   return (
     <div>
+      {isMobile ? (
+        <div style={{borderBottom:"1px solid #f1f5f9",background:isEditing?"#fafbff":selected?"#f0f7ff":"#fff",padding:"10px 12px"}}>
+          <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
+            <input type="checkbox" checked={selected} onChange={onToggleSelect} style={{accentColor:"#0f172a",marginTop:3,flexShrink:0}}/>
+            <div style={{flex:1,minWidth:0}} onClick={onEdit}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:2}}>
+                <span style={{fontWeight:600,fontSize:14,color:"#0f172a"}}>{item.material||"(tap to edit)"}</span>
+                <span onClick={e=>{e.stopPropagation();onUpdate({status:STATUS_OPTS[(STATUS_OPTS.indexOf(item.status)+1)%STATUS_OPTS.length]});}} style={{fontSize:11,fontWeight:600,color:sc,cursor:"pointer",flexShrink:0,marginLeft:8}}>{item.status}</span>
+              </div>
+              {item.description&&<div style={{fontSize:12,color:"#64748b",marginBottom:4}}>{item.description}</div>}
+              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:4}}>
+                {activeCols.filter(c=>!["material","status","description"].includes(c.id)).map(col=>{
+                  const val=getVal(col.id);
+                  if(val==="-")return null;
+                  return <span key={col.id} style={{fontSize:11,background:"#f1f5f9",borderRadius:4,padding:"2px 7px",color:"#374151"}}><span style={{color:"#94a3b8"}}>{col.label}: </span>{val}</span>;
+                })}
+              </div>
+            </div>
+            <button onClick={e=>{e.stopPropagation();onDelete();}} style={{background:"none",border:"none",color:"#e2e8f0",cursor:"pointer",fontSize:14,flexShrink:0}}>x</button>
+          </div>
+        </div>
+      ) : (
       <div style={{display:"grid",gridTemplateColumns:cols,borderBottom:"1px solid #f1f5f9",background:isEditing?"#fafbff":selected?"#f0f7ff":"#fff"}}>
         <div style={{padding:"8px 4px",display:"flex",alignItems:"center",justifyContent:"center"}}><input type="checkbox" checked={selected} onChange={onToggleSelect} style={{accentColor:"#0f172a"}}/></div>
         <div style={{padding:"8px",fontSize:12,color:"#94a3b8",display:"flex",alignItems:"center"}}>{idx+1}</div>
-        <div style={{padding:"6px 8px",display:"flex",alignItems:"center",minWidth:0}}><span style={{fontSize:11,color:"#64748b",fontWeight:500,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.component||"-"}</span></div>
-        <div style={{padding:"6px 8px",display:"flex",flexDirection:"column",justifyContent:"center",minWidth:0,cursor:"pointer"}} onClick={onEdit}>
-          <div style={{fontWeight:600,fontSize:13,color:"#0f172a",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.material||"(click to edit)"}</div>
-          {item.description&&<div style={{fontSize:11,color:"#64748b",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:1}}>{item.description}</div>}
-          {(item.color||item.finish)&&<div style={{fontSize:11,color:"#94a3b8",marginTop:1}}>{[item.color,item.finish].filter(Boolean).join(" / ")}</div>}
-        </div>
-        <div style={{padding:"6px 8px",fontSize:12,color:"#374151",display:"flex",alignItems:"center",overflow:"hidden"}}><span style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.vendor||"-"}</span></div>
-        <div style={{padding:"6px 8px",fontSize:12,color:"#374151",display:"flex",alignItems:"center",overflow:"hidden"}}><span style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.brand||"-"}</span></div>
-        <div style={{padding:"6px 8px",fontSize:12,color:"#374151",display:"flex",alignItems:"center"}}>{item.width||"-"}</div>
-        <div style={{padding:"6px 8px",fontSize:12,color:"#374151",display:"flex",alignItems:"center"}}>{item.height||"-"}</div>
-        <div style={{padding:"6px 8px",fontSize:12,color:"#374151",display:"flex",alignItems:"center"}}>{item.depth||"-"}</div>
-        <div style={{padding:"6px 8px",fontSize:12,color:"#374151",display:"flex",alignItems:"center"}}>{item.qty?item.qty+" "+item.unit:"-"}</div>
-        <div style={{padding:"6px 8px",fontSize:12,color:"#374151",display:"flex",alignItems:"center"}}>{item.leadTime||"-"}</div>
-        <div style={{padding:"6px 8px",display:"flex",alignItems:"center",gap:4}}>
-          <span onClick={()=>onUpdate({status:STATUS_OPTS[(STATUS_OPTS.indexOf(item.status)+1)%STATUS_OPTS.length]})} style={{fontSize:10,fontWeight:600,color:sc,cursor:"pointer",whiteSpace:"nowrap"}}>{item.status}</span>
-          <button onClick={e=>{e.stopPropagation();onDelete();}} style={{background:"none",border:"none",color:"#e2e8f0",cursor:"pointer",fontSize:12,padding:"0 2px"}}>x</button>
-        </div>
+        {activeCols.map(col=>{
+          if(col.id==="material") return (
+            <div key={col.id} style={{padding:"6px 8px",display:"flex",flexDirection:"column",justifyContent:"center",minWidth:0,cursor:"pointer"}} onClick={onEdit}>
+              <div style={{fontWeight:600,fontSize:13,color:"#0f172a",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.material||"(click to edit)"}</div>
+              {item.description&&<div style={{fontSize:11,color:"#64748b",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:1}}>{item.description}</div>}
+            </div>
+          );
+          if(col.id==="status") return (
+            <div key={col.id} style={{padding:"6px 8px",display:"flex",alignItems:"center",gap:4}}>
+              <span onClick={()=>onUpdate({status:STATUS_OPTS[(STATUS_OPTS.indexOf(item.status)+1)%STATUS_OPTS.length]})} style={{fontSize:10,fontWeight:600,color:sc,cursor:"pointer",whiteSpace:"nowrap"}}>{item.status}</span>
+              <button onClick={e=>{e.stopPropagation();onDelete();}} style={{background:"none",border:"none",color:"#e2e8f0",cursor:"pointer",fontSize:12,padding:"0 2px"}}>x</button>
+            </div>
+          );
+          return <div key={col.id} style={{padding:"6px 8px",fontSize:12,color:"#374151",display:"flex",alignItems:"center",overflow:"hidden"}}><span style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{getVal(col.id)}</span></div>;
+        })}
       </div>
+      )}
       {isEditing&&(
         <div style={{background:"#f8fafc",borderBottom:"2px solid #e2e8f0",padding:"14px 16px"}}>
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:10}}>
