@@ -183,6 +183,7 @@ function App() {
       try{const res=await window.storage.list("proj:");if(res&&res.keys.length){const loaded=[];for(const k of res.keys){try{const r=await window.storage.get(k);if(r)loaded.push(JSON.parse(r.value));}catch{}}loaded.sort((a,b)=>new Date(b.updatedAt)-new Date(a.updatedAt));setProjects(loaded);}}catch{}
       try{const v=await window.storage.get("global:vendors");if(v)setVendors(JSON.parse(v.value));}catch{}
       try{const k=await window.storage.get("global:apikey");if(k)setApiKey(k.value);}catch{}
+      try{const vc=await window.storage.get("global:viscols");if(vc)setSavedCols(JSON.parse(vc.value));}catch{}
       setLoading(false);
     })();
   },[]);
@@ -190,6 +191,7 @@ function App() {
   const persist=async(proj)=>{setSaving(true);try{await window.storage.set("proj:"+proj.id,JSON.stringify(proj));}catch{}setSaving(false);};
   const persistVendors=async(list)=>{try{await window.storage.set("global:vendors",JSON.stringify(list));}catch{}};
   const saveApiKey=async(key)=>{setApiKey(key);try{await window.storage.set("global:apikey",key);}catch{}};
+  const saveVisibleCols=async(cols)=>{setSavedCols(cols);try{await window.storage.set("global:viscols",JSON.stringify(cols));}catch{}};
 
   const updateActive=useCallback((fn)=>{
     setProjects(prev=>prev.map(p=>{
