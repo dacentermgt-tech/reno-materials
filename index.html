@@ -1,34 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>RenoMaterials</title>
-  <meta name="description" content="Renovation materials order manager — synced across all devices." />
   <meta name="theme-color" content="#B5763A" />
-
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-
-  <!-- Firebase SDKs (compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
-
-  <style>
-    *, *::before, *::after { box-sizing: border-box; }
-    body { margin: 0; padding: 0; background: #FAFAF8; }
-    input, select, button, textarea { font-family: inherit; }
-    @media print { .no-print { display: none !important; } }
-  </style>
+  <style>*,*::before,*::after{box-sizing:border-box}body{margin:0;padding:0;background:#FAFAF8}input,select,button,textarea{font-family:inherit}@media print{.no-print{display:none!important}}</style>
 </head>
 <body>
   <div id="root"></div>
-
   <script>
-
 const firebaseConfig = {
   apiKey: "AIzaSyA4ODk4lki5NiLgjQyfZN961rhkmcTPAuc",
   authDomain: "reno-materials-order-form.firebaseapp.com",
@@ -37,49 +24,32 @@ const firebaseConfig = {
   messagingSenderId: "182946152456",
   appId: "1:182946152456:web:c513f3862d020642acd1bd"
 };
-
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const COLLECTION = "storage";
-
 function encodeKey(key) { return key.replace(/\//g, "__SLASH__"); }
-
 window.storage = {
   get: async (key) => {
-    try {
-      const doc = await db.collection(COLLECTION).doc(encodeKey(key)).get();
-      if (!doc.exists) return null;
-      return { key, value: doc.data().value };
-    } catch(e) { console.error("storage.get", e); return null; }
+    try { const doc = await db.collection(COLLECTION).doc(encodeKey(key)).get(); if (!doc.exists) return null; return { key, value: doc.data().value }; } catch(e) { return null; }
   },
   set: async (key, value) => {
-    try {
-      await db.collection(COLLECTION).doc(encodeKey(key)).set({ key, value, updatedAt: Date.now() });
-      return { key, value };
-    } catch(e) { console.error("storage.set", e); return null; }
+    try { await db.collection(COLLECTION).doc(encodeKey(key)).set({ key, value, updatedAt: Date.now() }); return { key, value }; } catch(e) { return null; }
   },
   delete: async (key) => {
-    try {
-      await db.collection(COLLECTION).doc(encodeKey(key)).delete();
-      return { key, deleted: true };
-    } catch(e) { console.error("storage.delete", e); return null; }
+    try { await db.collection(COLLECTION).doc(encodeKey(key)).delete(); return { key, deleted: true }; } catch(e) { return null; }
   },
   list: async (prefix) => {
     try {
       let q = db.collection(COLLECTION);
       if (prefix) q = q.where("key", ">=", prefix).where("key", "<", prefix + "\uf8ff");
       const snap = await q.get();
-      const keys = snap.docs.map(d => d.data().key).filter(k => !prefix || k.startsWith(prefix));
-      return { keys };
-    } catch(e) { console.error("storage.list", e); return { keys: [] }; }
+      return { keys: snap.docs.map(d => d.data().key).filter(k => !prefix || k.startsWith(prefix)) };
+    } catch(e) { return { keys: [] }; }
   }
 };
-
-  </script>
-
+</script>
   <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
-
 
 // ─── constants ───────────────────────────────────────────────
 const UNITS = ["sq ft","lin ft","cu ft","each","in","ft","yd","sq yd","lb","ton","gal","bag","box","sheet","roll","pallet"];
@@ -384,19 +354,38 @@ function App() {
   const startEdit = (item) => { setItemForm({ ...item }); setEditItemId(item.id); };
 
   // ── photos ──
+  const hasFirebaseStorage = () => {
+    try { return typeof firebase !== "undefined" && typeof firebase.storage === "function"; }
+    catch { return false; }
+  };
+
   const uploadPhotos = async (itemId, files) => {
     if (!files.length) return;
     setUploadingPhotos(p => ({ ...p, [itemId]: true }));
     try {
-      const storageRef = firebase.storage().ref();
       const uploaded = [];
-      for (const file of Array.from(files)) {
-        const ext = file.name.split(".").pop();
-        const path = `items/${itemId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
-        const ref = storageRef.child(path);
-        await ref.put(file);
-        const url = await ref.getDownloadURL();
-        uploaded.push({ url, path, name: file.name });
+      if (hasFirebaseStorage()) {
+        // Firebase Storage (GitHub/live version)
+        const storageRef = firebase.storage().ref();
+        for (const file of Array.from(files)) {
+          const ext = file.name.split(".").pop();
+          const path = `items/${itemId}/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+          const ref = storageRef.child(path);
+          await ref.put(file);
+          const url = await ref.getDownloadURL();
+          uploaded.push({ url, path, name: file.name });
+        }
+      } else {
+        // Fallback: store as base64 data URLs (Claude version)
+        for (const file of Array.from(files)) {
+          const url = await new Promise((res, rej) => {
+            const reader = new FileReader();
+            reader.onload = e => res(e.target.result);
+            reader.onerror = rej;
+            reader.readAsDataURL(file);
+          });
+          uploaded.push({ url, path: `local_${Date.now()}_${file.name}`, name: file.name });
+        }
       }
       updateActive(p => ({
         ...p,
@@ -411,7 +400,9 @@ function App() {
 
   const deletePhoto = async (itemId, photo) => {
     try {
-      await firebase.storage().ref(photo.path).delete();
+      if (hasFirebaseStorage() && !photo.path.startsWith("local_")) {
+        await firebase.storage().ref(photo.path).delete();
+      }
     } catch(e) { console.warn("Could not delete from storage:", e); }
     updateActive(p => ({
       ...p,
@@ -1231,7 +1222,6 @@ const ghostBtn   = { padding: "8px 16px", borderRadius: 9, border: "1.5px solid 
 const inp        = { display: "block", width: "100%", background: "#FAFAF8", border: "1.5px solid #E0DDD5", borderRadius: 8, padding: "8px 10px", color: "#1a1a1a", fontSize: 13, outline: "none", boxSizing: "border-box" };
 const iconBtnStyle = { background: "transparent", border: "1px solid #ECEAE4", borderRadius: 7, padding: "5px 8px", cursor: "pointer", fontSize: 13 };
 const td = { padding: "8px", borderBottom: "1px solid #eee", verticalAlign: "top" };
-
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
