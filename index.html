@@ -668,8 +668,8 @@ function ItemRow({item,idx,cols,activeCols,visibleCols,isMobile,isEditing,select
   return (
     <div>
       {isMobile ? (
-        <div style={{background:isEditing?"#f8faff":"#fff",borderBottom:"1px solid #f1f5f9"}}>
-          <div style={{display:"flex",gap:10,padding:"12px 14px"}}>
+        <div style={{margin:"8px 10px",borderRadius:10,border:"1px solid #e2e8f0",background:isEditing?"#f8faff":"#fff",boxShadow:"0 1px 4px rgba(0,0,0,0.07)",overflow:"hidden"}}>
+          <div style={{display:"flex",gap:10,padding:"12px 12px"}}>
             {item.photos&&item.photos.length>0 ? (
               <img src={item.photos[0].url} alt="" style={{width:72,height:72,objectFit:"cover",borderRadius:6,flexShrink:0,border:"1px solid #e2e8f0"}}/>
             ) : (
