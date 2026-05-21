@@ -383,7 +383,7 @@ function ProjectScreen({active,vendors,saving,apiKey,onBack,updateActive}) {
               <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:14}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                   <span style={{fontSize:13,fontWeight:600,color:"#0f172a"}}>Items ({selectedItems.length===0?active.items.length:selectedItems.length} selected)</span>
-                  <button onClick={()=>setSelectedItems(selectedItems.length===0?[]:[])} style={{fontSize:12,color:"#64748b",background:"none",border:"none",cursor:"pointer"}}>{selectedItems.length===0?"Deselect all":"Select all"}</button>
+                  <button onClick={()=>setSelectedItems(selectedItems.length===0?active.items.map(it=>it.id):[])} style={{fontSize:12,color:"#64748b",background:"none",border:"none",cursor:"pointer"}}>{selectedItems.length===0?"Deselect all":"Select all"}</button>
                 </div>
                 <div style={{maxHeight:200,overflowY:"auto"}}>
                   {active.items.map(it=>{
