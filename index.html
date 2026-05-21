@@ -173,6 +173,7 @@ function App() {
   const [screen,setScreen]=useState("home");
   const [vendors,setVendors]=useState([]);
   const [apiKey,setApiKey]=useState("");
+  const [savedCols,setSavedCols]=useState(null);
   const [loading,setLoading]=useState(true);
   const [saving,setSaving]=useState(false);
   const active=projects.find(p=>p.id===activeId);
@@ -202,7 +203,7 @@ function App() {
 
   if(screen==="vendors")return <VendorsScreen vendors={vendors} onBack={()=>setScreen("home")} onChange={(v)=>{setVendors(v);persistVendors(v);}}/>;
 
-  if(screen==="project"&&active)return <ProjectScreen active={active} vendors={vendors} saving={saving} apiKey={apiKey} onBack={()=>setScreen("home")} updateActive={updateActive}/>;
+  if(screen==="project"&&active)return <ProjectScreen active={active} vendors={vendors} saving={saving} apiKey={apiKey} savedCols={savedCols} onSaveVisibleCols={saveVisibleCols} onBack={()=>setScreen("home")} updateActive={updateActive}/>;
 
   return <HomeScreen projects={projects} saving={saving} apiKey={apiKey} onSaveApiKey={saveApiKey} onVendors={()=>setScreen("vendors")} onOpen={(id)=>{setActiveId(id);setScreen("project");}} onCreateProject={(name,company)=>{const p=mkProject(name,company);setProjects(prev=>[p,...prev]);persist(p);setActiveId(p.id);setScreen("project");}} onDeleteProject={async(id)=>{try{await window.storage.delete("proj:"+id);}catch{}setProjects(prev=>prev.filter(p=>p.id!==id));}}/>;
 }
@@ -315,7 +316,7 @@ function VendorsScreen({vendors,onBack,onChange}) {
 }
 </script>
 <script type="text/babel">
-function ProjectScreen({active,vendors,saving,apiKey,onBack,updateActive}) {
+function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols,onBack,updateActive}) {
   const [tab,setTab]=useState("items");
   const [editId,setEditId]=useState(null);
   const [importState,setImportState]=useState(null);
@@ -329,7 +330,7 @@ function ProjectScreen({active,vendors,saving,apiKey,onBack,updateActive}) {
   const [showNotes,setShowNotes]=useState(false);
   const [contactForm,setContactForm]=useState({name:"",email:"",type:"vendor"});
   const [showColPicker,setShowColPicker]=useState(false);
-  const [visibleCols,setVisibleCols]=useState(["component","material","vendor","brand","width","height","depth","qty","leadTime","status"]);
+  const [visibleCols,setVisibleCols]=useState(savedCols||["component","material","vendor","brand","width","height","depth","qty","leadTime","status"]);
   const fileRef=useRef();
   const pdfRef=useRef();
 
