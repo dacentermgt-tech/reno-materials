@@ -568,7 +568,7 @@ function RoomTable({room,items,editId,onEdit,onUpdate,onDelete,selectedItems,onT
   const cols = "32px 36px " + activeCols.map(c=>c.w).join(" ");
   const headers = ["","#",...activeCols.map(c=>c.label)];
   return (
-    <div id={"room-"+room} style={{marginBottom:16}}>
+    <div id={"room-"+room} style={{marginBottom:16,background:"#f8fafc"}}>
       <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"2px solid #0f172a"}}>
         <button onClick={()=>setCollapsed(c=>!c)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#64748b",padding:"0 4px"}}>{collapsed?"[+]":"[-]"}</button>
         <span style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{room}</span>
@@ -608,7 +608,7 @@ function ItemRow({item,idx,cols,activeCols,isMobile,isEditing,selected,onEdit,on
   return (
     <div>
       {isMobile ? (
-        <div style={{borderBottom:"1px solid #f1f5f9",background:isEditing?"#fafbff":"#fff"}}>
+        <div style={{margin:"0 12px 10px",borderRadius:10,border:"1px solid #e2e8f0",background:isEditing?"#fafbff":"#fff",boxShadow:"0 1px 4px rgba(0,0,0,0.07)"}}>
           <div style={{padding:"14px 12px"}}>
             {item.photos&&item.photos.length>0&&(
               <img src={item.photos[0].url} alt="" style={{width:"100%",height:160,objectFit:"cover",borderRadius:8,marginBottom:10}}/>
