@@ -36,7 +36,7 @@ function Btn({onClick,label,ghost,small,disabled}) {
   return <button onClick={onClick} disabled={disabled} style={{...bsty,padding:small?"5px 12px":"7px 16px",background:ghost?"#f1f5f9":disabled?"#e2e8f0":"#0f172a",color:ghost?"#64748b":disabled?"#94a3b8":"#fff",cursor:disabled?"default":"pointer",fontSize:small?12:13}}>{label}</button>;
 }
 
-const mkItem = () => ({id:"item-"+Date.now(),component:"",room:"",material:"",description:"",vendor:"",brand:"",color:"",finish:"",qty:"",unit:"each",width:"",height:"",depth:"",leadTime:"",notes:"",website:"",photos:[],status:"Draft"});
+const mkItem = () => ({id:"item-"+Date.now(),component:"",room:"",material:"",description:"",vendor:"",brand:"",color:"",finish:"",qty:"",unit:"each",width:"",height:"",depth:"",leadTime:"",notes:"",website:"",photos:[],status:"Draft",unitPrice:"",discount:"",totalPrice:""});
 const mkProject = (name,company) => ({id:"proj-"+Date.now(),name:name||"",company:company||"",contacts:[],items:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()});
 
 const COL = {component:["item component","component"],room:["room description","room","location","area"],material:["item description","item desc","description","desc"],description:["client description","client desc"],vendor:["vendor id","vendor","supplier"],brand:["brand","manufacturer"],color:["color","colour"],finish:["finish"],qty:["qty","quantity","amount"],unit:["unit","uom"],width:["width"],height:["height"],depth:["depth"],leadTime:["lead time","leadtime"]};
@@ -101,7 +101,7 @@ function fbCopy(t){const el=document.createElement("textarea");el.value=t;el.sty
 function hasFirebase(){try{return typeof firebase!=="undefined"&&typeof firebase.storage==="function";}catch{return false;}}
 
 function exportToExcel(active) {
-  const rows=active.items.map((it,i)=>({"#":i+1,"Component":it.component||"","Room":it.room||"","Item Description":it.material||"","Client Description":it.description||"","Vendor":it.vendor||"","Brand":it.brand||"","Color":it.color||"","Finish":it.finish||"","Qty":it.qty||"","Unit":it.unit||"","Width":it.width||"","Height":it.height||"","Depth":it.depth||"","Lead Time":it.leadTime||"","Notes":it.notes||"","Status":it.status||"","Website":it.website||""}));
+  const rows=active.items.map((it,i)=>({"#":i+1,"Component":it.component||"","Room":it.room||"","Item Description":it.material||"","Client Description":it.description||"","Vendor":it.vendor||"","Brand":it.brand||"","Color":it.color||"","Finish":it.finish||"","Qty":it.qty||"","Unit":it.unit||"","Width":it.width||"","Height":it.height||"","Depth":it.depth||"","Lead Time":it.leadTime||"","Unit Price":it.unitPrice||"","Discount %":it.discount||"","Total Price":it.totalPrice||"","Notes":it.notes||"","Status":it.status||"","Website":it.website||""}));
   const ws=XLSX.utils.json_to_sheet(rows);
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"Materials");
@@ -317,12 +317,20 @@ function ProjectScreen({active,vendors,saving,apiKey,onBack,updateActive}) {
         {saving&&<span style={{fontSize:11,color:"#94a3b8"}}>Saving...</span>}
         <button onClick={()=>exportToExcel(active)} style={{...bsty,background:"#f1f5f9",color:"#64748b",fontSize:12}}>Export XLS</button>
       </div>
-      <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"0 20px",display:"flex",gap:0}}>
-        {["items","email","contacts"].map(t=>(
-          <button key={t} onClick={()=>{setTab(t);if(t==="email")setSelectedItems(active.items.map(it=>it.id));}} style={{padding:"10px 16px",border:"none",borderBottom:tab===t?"2px solid #0f172a":"2px solid transparent",background:"none",cursor:"pointer",fontSize:13,fontWeight:tab===t?600:400,color:tab===t?"#0f172a":"#64748b",textTransform:"capitalize"}}>
-            {t==="items"?"Items ("+active.items.length+")":t==="email"?"Quote Email":"Contacts ("+active.contacts.length+")"}
+      <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"0 20px",display:"flex",alignItems:"center",gap:0}}>
+        {["items","financial","email","contacts"].map(t=>(
+          <button key={t} onClick={()=>{setTab(t);if(t==="email")setSelectedItems(active.items.map(it=>it.id));}} style={{padding:"10px 14px",border:"none",borderBottom:tab===t?"2px solid #0f172a":"2px solid transparent",background:"none",cursor:"pointer",fontSize:13,fontWeight:tab===t?600:400,color:tab===t?"#0f172a":"#64748b",textTransform:"capitalize",whiteSpace:"nowrap"}}>
+            {t==="items"?"Items ("+active.items.length+")":t==="financial"?"Financial":t==="email"?"Quote Email":"Contacts ("+active.contacts.length+")"}
           </button>
         ))}
+        <div style={{marginLeft:"auto",position:"relative"}}>
+          <select onChange={e=>{if(e.target.value){const el=document.getElementById("room-"+e.target.value);if(el)el.scrollIntoView({behavior:"smooth",block:"start"});}e.target.value="";}} style={{fontSize:12,padding:"4px 8px",border:"1px solid #e2e8f0",borderRadius:6,background:"#fff",color:"#64748b",cursor:"pointer"}}>
+            <option value="">View Section</option>
+            {[...new Set(active.items.map(it=>it.room||"Unassigned"))].map(r=>(
+              <option key={r} value={r}>{r} ({active.items.filter(it=>(it.room||"Unassigned")===r).length})</option>
+            ))}
+          </select>
+        </div>
       </div>
       <div style={{maxWidth:1100,margin:"0 auto",padding:"0 16px 60px"}}>
 
@@ -375,6 +383,57 @@ function ProjectScreen({active,vendors,saving,apiKey,onBack,updateActive}) {
             {rooms.map(room=>(
               <RoomTable key={room} room={room} items={active.items.filter(it=>(it.room||"Unassigned")===room)} editId={editId} onEdit={setEditId} onUpdate={updateItem} onDelete={deleteItem} selectedItems={selectedItems} onToggleSelect={(id)=>setSelectedItems(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id])} visibleCols={visibleCols}/>
             ))}
+          </div>
+        )}
+
+        {tab==="financial"&&(
+          <div style={{paddingTop:16}}>
+            {(()=>{
+              const totalCost=active.items.reduce((s,it)=>s+(parseFloat(it.totalPrice)||0),0);
+              const totalItems=active.items.filter(it=>it.unitPrice).length;
+              return (
+                <div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:12,marginBottom:16}}>
+                    <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:"14px 16px"}}>
+                      <div style={{fontSize:11,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:4}}>Total Cost</div>
+                      <div style={{fontSize:22,fontWeight:600,color:"#0f172a"}}>${totalCost.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                    </div>
+                    <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:"14px 16px"}}>
+                      <div style={{fontSize:11,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:4}}>Items Priced</div>
+                      <div style={{fontSize:22,fontWeight:600,color:"#0f172a"}}>{totalItems} / {active.items.length}</div>
+                    </div>
+                    <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:"14px 16px"}}>
+                      <div style={{fontSize:11,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:4}}>Avg per Item</div>
+                      <div style={{fontSize:22,fontWeight:600,color:"#0f172a"}}>${totalItems>0?(totalCost/totalItems).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2}):"0.00"}</div>
+                    </div>
+                  </div>
+                  <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,overflow:"hidden"}}>
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 120px 80px 80px 100px 80px",background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>
+                      {["Item","Vendor","Qty","Unit Price","Discount","Total"].map((h,i)=>(
+                        <div key={i} style={{padding:"8px 10px",fontSize:11,fontWeight:600,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.5px"}}>{h}</div>
+                      ))}
+                    </div>
+                    {active.items.map(it=>(
+                      <div key={it.id} style={{display:"grid",gridTemplateColumns:"1fr 120px 80px 80px 100px 80px",borderBottom:"1px solid #f1f5f9",alignItems:"center"}}>
+                        <div style={{padding:"10px 10px"}}>
+                          <div style={{fontSize:13,fontWeight:500,color:"#0f172a"}}>{it.material||"(no name)"}</div>
+                          {it.room&&<div style={{fontSize:11,color:"#94a3b8"}}>{it.room}</div>}
+                        </div>
+                        <div style={{padding:"10px 10px",fontSize:12,color:"#374151"}}>{it.vendor||"-"}</div>
+                        <div style={{padding:"10px 10px",fontSize:12,color:"#374151"}}>{it.qty?it.qty+" "+it.unit:"-"}</div>
+                        <div style={{padding:"10px 10px",fontSize:12,color:"#374151"}}>{it.unitPrice?"$"+parseFloat(it.unitPrice).toFixed(2):"-"}</div>
+                        <div style={{padding:"10px 10px",fontSize:12,color:"#374151"}}>{it.discount?it.discount+"%":"-"}</div>
+                        <div style={{padding:"10px 10px",fontSize:13,fontWeight:500,color:it.totalPrice?"#0f172a":"#94a3b8"}}>{it.totalPrice?"$"+parseFloat(it.totalPrice).toFixed(2):"-"}</div>
+                      </div>
+                    ))}
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 120px 80px 80px 100px 80px",borderTop:"2px solid #e2e8f0",background:"#f8fafc"}}>
+                      <div style={{padding:"10px 10px",gridColumn:"1/6",fontSize:13,fontWeight:600,color:"#0f172a",textAlign:"right"}}>Total</div>
+                      <div style={{padding:"10px 10px",fontSize:13,fontWeight:700,color:"#0f172a"}}>${totalCost.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -494,7 +553,7 @@ function RoomTable({room,items,editId,onEdit,onUpdate,onDelete,selectedItems,onT
   const cols = "32px 36px " + activeCols.map(c=>c.w).join(" ");
   const headers = ["","#",...activeCols.map(c=>c.label)];
   return (
-    <div style={{marginBottom:16}}>
+    <div id={"room-"+room} style={{marginBottom:16}}>
       <div style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"2px solid #0f172a"}}>
         <button onClick={()=>setCollapsed(c=>!c)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#64748b",padding:"0 4px"}}>{collapsed?"[+]":"[-]"}</button>
         <span style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{room}</span>
@@ -534,26 +593,43 @@ function ItemRow({item,idx,cols,activeCols,isMobile,isEditing,selected,onEdit,on
   return (
     <div>
       {isMobile ? (
-        <div style={{borderBottom:"1px solid #f1f5f9",background:isEditing?"#fafbff":selected?"#f0f7ff":"#fff",padding:"10px 12px"}}>
-          <div style={{display:"flex",alignItems:"flex-start",gap:8}}>
-            <input type="checkbox" checked={selected} onChange={onToggleSelect} style={{accentColor:"#0f172a",marginTop:3,flexShrink:0}}/>
-            <div style={{flex:1,minWidth:0}} onClick={onEdit}>
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:2}}>
-                <span style={{fontWeight:600,fontSize:14,color:"#0f172a"}}>{item.material||"(tap to edit)"}</span>
-                <span onClick={e=>{e.stopPropagation();onUpdate({status:STATUS_OPTS[(STATUS_OPTS.indexOf(item.status)+1)%STATUS_OPTS.length]});}} style={{fontSize:11,fontWeight:600,color:sc,cursor:"pointer",flexShrink:0,marginLeft:8}}>{item.status}</span>
+        <div style={{borderBottom:"1px solid #f1f5f9",background:isEditing?"#fafbff":"#fff"}}>
+          {/* Programa-style mobile card */}
+          <div style={{padding:"14px 12px"}}>
+            {/* Photo if available */}
+            {item.photos&&item.photos.length>0&&(
+              <img src={item.photos[0].url} alt="" style={{width:"100%",height:160,objectFit:"cover",borderRadius:8,marginBottom:10}}/>
+            )}
+            {/* Header row */}
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
+              <div style={{flex:1,minWidth:0,paddingRight:8}}>
+                <div style={{fontWeight:600,fontSize:15,color:"#0f172a",marginBottom:2}}>{item.material||"(tap to edit)"}</div>
+                {item.component&&<span style={{fontSize:11,color:"#94a3b8",marginRight:6}}>{item.component}</span>}
               </div>
-              {item.description&&<div style={{fontSize:12,color:"#64748b",marginBottom:4}}>{item.description}</div>}
-              <div style={{display:"flex",gap:6,flexWrap:"wrap",marginTop:4}}>
-                {activeCols.filter(c=>!["material","status","description"].includes(c.id)).map(col=>{
-                  const val=getVal(col.id);
-                  if(val==="-")return null;
-                  return <span key={col.id} style={{fontSize:11,background:"#f1f5f9",borderRadius:4,padding:"2px 7px",color:"#374151"}}><span style={{color:"#94a3b8"}}>{col.label}: </span>{val}</span>;
-                })}
+              <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0}}>
+                <span onClick={e=>{e.stopPropagation();onUpdate({status:STATUS_OPTS[(STATUS_OPTS.indexOf(item.status)+1)%STATUS_OPTS.length]});}} style={{fontSize:11,fontWeight:600,color:sc,cursor:"pointer",background:"#f8fafc",borderRadius:20,padding:"2px 10px",border:"1px solid #e2e8f0"}}>{item.status}</span>
+                <button onClick={e=>{e.stopPropagation();onDelete();}} style={{background:"none",border:"none",color:"#cbd5e1",cursor:"pointer",fontSize:16,padding:0}}>x</button>
               </div>
             </div>
-            <button onClick={e=>{e.stopPropagation();onDelete();}} style={{background:"none",border:"none",color:"#e2e8f0",cursor:"pointer",fontSize:14,flexShrink:0}}>x</button>
+            {/* Visible fields as labelled rows */}
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 12px",marginBottom:10}}>
+              {activeCols.filter(c=>c.id!=="material"&&c.id!=="status"&&c.id!=="component").map(col=>{
+                const val=getVal(col.id);
+                if(val==="-")return null;
+                return (
+                  <div key={col.id}>
+                    <div style={{fontSize:10,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.5px"}}>{col.label}</div>
+                    <div style={{fontSize:13,color:"#0f172a"}}>{val}</div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Details / Edit button */}
+            <div style={{display:"flex",gap:8}}>
+              <button onClick={onEdit} style={{flex:1,padding:"8px",border:"1px solid #e2e8f0",borderRadius:8,background:"#fff",fontSize:13,color:"#0f172a",fontWeight:500,cursor:"pointer"}}>{isEditing?"Close":"Details"}</button>
+              <input type="checkbox" checked={selected} onChange={onToggleSelect} style={{accentColor:"#0f172a",width:18,height:18,alignSelf:"center"}}/>
+            </div>
           </div>
-        </div>
       ) : (
       <div style={{display:"grid",gridTemplateColumns:cols,borderBottom:"1px solid #f1f5f9",background:isEditing?"#fafbff":selected?"#f0f7ff":"#fff"}}>
         <div style={{padding:"8px 4px",display:"flex",alignItems:"center",justifyContent:"center"}}><input type="checkbox" checked={selected} onChange={onToggleSelect} style={{accentColor:"#0f172a"}}/></div>
@@ -594,6 +670,11 @@ function ItemRow({item,idx,cols,activeCols,isMobile,isEditing,selected,onEdit,on
             <div><label style={lbl}>Height</label><input value={item.height} onChange={e=>onUpdate({height:e.target.value})} placeholder='36"' style={inp}/></div>
             <div><label style={lbl}>Depth</label><input value={item.depth} onChange={e=>onUpdate({depth:e.target.value})} placeholder='24"' style={inp}/></div>
             <div><label style={lbl}>Lead Time</label><input value={item.leadTime} onChange={e=>onUpdate({leadTime:e.target.value})} placeholder="6 weeks" style={inp}/></div>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
+            <div><label style={lbl}>Unit Trade Price ($)</label><input value={item.unitPrice||""} onChange={e=>{const up=e.target.value;const tp=up&&item.qty?((parseFloat(up)||0)*(parseFloat(item.qty)||0)*(1-(parseFloat(item.discount)||0)/100)).toFixed(2):"";onUpdate({unitPrice:up,totalPrice:tp});}} type="number" min="0" step="0.01" placeholder="0.00" style={inp}/></div>
+            <div><label style={lbl}>Trade Discount (%)</label><input value={item.discount||""} onChange={e=>{const d=e.target.value;const tp=item.unitPrice&&item.qty?((parseFloat(item.unitPrice)||0)*(parseFloat(item.qty)||0)*(1-(parseFloat(d)||0)/100)).toFixed(2):"";onUpdate({discount:d,totalPrice:tp});}} type="number" min="0" max="100" step="0.1" placeholder="0" style={inp}/></div>
+            <div><label style={lbl}>Total Price ($)</label><input value={item.totalPrice||""} readOnly style={{...inp,background:"#f8fafc",color:"#64748b"}}/></div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
             <div><label style={lbl}>Notes</label><input value={item.notes} onChange={e=>onUpdate({notes:e.target.value})} placeholder="Special instructions..." style={inp}/></div>
