@@ -1,6 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
+<html lang="en"><head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>RenoMaterials</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
@@ -11,22 +10,18 @@
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 <style>*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:#f8fafc}input,select,button,textarea{font-family:inherit}</style>
-</head>
-<body>
+</head><body>
 <div id="root"></div>
 <script>
 const firebaseConfig={apiKey:"AIzaSyA4ODk4lki5NiLgjQyfZN961rhkmcTPAuc",authDomain:"reno-materials-order-form.firebaseapp.com",projectId:"reno-materials-order-form",storageBucket:"reno-materials-order-form.firebasestorage.app",messagingSenderId:"182946152456",appId:"1:182946152456:web:c513f3862d020642acd1bd"};
-firebase.initializeApp(firebaseConfig);
-const db=firebase.firestore();
-const COLL="storage";
+firebase.initializeApp(firebaseConfig);const db=firebase.firestore();const COLL="storage";
 function ekey(k){return k.replace(/\//g,"__S__");}
 window.storage={
   get:async(k)=>{try{const d=await db.collection(COLL).doc(ekey(k)).get();if(!d.exists)return null;return{key:k,value:d.data().value};}catch{return null;}},
   set:async(k,v)=>{try{await db.collection(COLL).doc(ekey(k)).set({key:k,value:v,ts:Date.now()});return{key:k,value:v};}catch{return null;}},
   delete:async(k)=>{try{await db.collection(COLL).doc(ekey(k)).delete();return{key:k,deleted:true};}catch{return null;}},
   list:async(p)=>{try{let q=db.collection(COLL);if(p)q=q.where("key",">=",p).where("key","<",p+"\uf8ff");const s=await q.get();return{keys:s.docs.map(d=>d.data().key).filter(k=>!p||k.startsWith(p))};}catch{return{keys:[]};}}
-};
-</script>
+};</script>
 <script type="text/babel">
 const {useState,useEffect,useRef,useCallback}=React;
 
@@ -387,15 +382,28 @@ function ProjectScreen({active,vendors,saving,apiKey,onBack,updateActive}) {
               </div>
               <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:14}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                  <span style={{fontSize:13,fontWeight:600,color:"#0f172a"}}>Items ({selectedItems.length||active.items.length} selected)</span>
-                  <button onClick={()=>setSelectedItems(s=>s.length===active.items.length?[]:active.items.map(it=>it.id))} style={{fontSize:12,color:"#64748b",background:"none",border:"none",cursor:"pointer"}}>{selectedItems.length===active.items.length?"Deselect all":"Select all"}</button>
+                  <span style={{fontSize:13,fontWeight:600,color:"#0f172a"}}>Items ({selectedItems.length===0?active.items.length:selectedItems.length} selected)</span>
+                  <button onClick={()=>setSelectedItems(selectedItems.length===0?[]:[])} style={{fontSize:12,color:"#64748b",background:"none",border:"none",cursor:"pointer"}}>{selectedItems.length===0?"Deselect all":"Select all"}</button>
                 </div>
                 <div style={{maxHeight:200,overflowY:"auto"}}>
                   {active.items.map(it=>{
                     const checked=selectedItems.length===0||selectedItems.includes(it.id);
                     return (
                       <label key={it.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",cursor:"pointer",borderBottom:"1px solid #f1f5f9"}}>
-                        <input type="checkbox" checked={checked} onChange={()=>{if(selectedItems.length===0){setSelectedItems(active.items.map(x=>x.id).filter(x=>x!==it.id));}else{setSelectedItems(s=>s.includes(it.id)?s.filter(x=>x!==it.id):[...s,it.id]);}}} style={{accentColor:"#0f172a"}}/>
+                        <input type="checkbox" checked={checked} onChange={()=>{
+                          if(selectedItems.length===0){
+                            // currently all selected - uncheck this one means select all except this
+                            setSelectedItems(active.items.map(x=>x.id).filter(x=>x!==it.id));
+                          } else if(selectedItems.includes(it.id)){
+                            // uncheck - if only one left, go back to all selected (empty)
+                            const next=selectedItems.filter(x=>x!==it.id);
+                            setSelectedItems(next.length===0?[]:next);
+                          } else {
+                            // check - add to selection, if now all selected go back to empty
+                            const next=[...selectedItems,it.id];
+                            setSelectedItems(next.length===active.items.length?[]:next);
+                          }
+                        }} style={{accentColor:"#0f172a"}}/>
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{fontSize:12,fontWeight:500,color:"#0f172a",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{it.material||"(no name)"}</div>
                           {it.room&&<div style={{fontSize:11,color:"#94a3b8"}}>{it.room}</div>}
@@ -620,6 +628,4 @@ function PhotoUpload({item,onUpdate}) {
 
 const root=ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App/>);
-</script>
-</body>
-</html>
+</script></body></html>
