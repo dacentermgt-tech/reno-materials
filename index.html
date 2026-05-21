@@ -209,6 +209,30 @@ function StatusSummary({items}) {
   );
 }
 
+function FilteredItems({items,search,sortBy,rooms,editId,onEdit,onUpdate,onDelete,selectedItems,onToggleSelect,visibleCols}) {
+  var allItems=items;
+  if(search&&search.trim()){
+    var q=search.toLowerCase();
+    allItems=allItems.filter(function(it){return (it.material||"").toLowerCase().includes(q)||(it.room||"").toLowerCase().includes(q)||(it.vendor||"").toLowerCase().includes(q)||(it.brand||"").toLowerCase().includes(q)||(it.description||"").toLowerCase().includes(q)||(it.component||"").toLowerCase().includes(q);});
+  }
+  if(sortBy&&sortBy!=="none"){
+    allItems=[...allItems].sort(function(a,b){var av=(a[sortBy]||"").toLowerCase();var bv=(b[sortBy]||"").toLowerCase();return av<bv?-1:av>bv?1:0;});
+  }
+  var isFiltered=(search&&search.trim())||(sortBy&&sortBy!=="none");
+  var roomList=isFiltered?["Results ("+allItems.length+")"]:rooms;
+  if(allItems.length===0&&search&&search.trim()){
+    return <div style={{textAlign:"center",padding:"40px 20px",color:"#94a3b8",fontSize:14}}>No items match "{search}"</div>;
+  }
+  return (
+    <div>
+      {roomList.map(function(room){
+        var roomItems=isFiltered?allItems:allItems.filter(function(it){return (it.room||"Unassigned")===room;});
+        return <RoomTable key={room} room={room} items={roomItems} editId={editId} onEdit={onEdit} onUpdate={onUpdate} onDelete={onDelete} selectedItems={selectedItems} onToggleSelect={onToggleSelect} visibleCols={visibleCols}/>;
+      })}
+    </div>
+  );
+}
+
 function exportToExcel(active) {
   const rows=active.items.map((it,i)=>({"#":i+1,"Component":it.component||"","Room":it.room||"","Item Description":it.material||"","Client Description":it.description||"","Vendor":it.vendor||"","Brand":it.brand||"","Color":it.color||"","Finish":it.finish||"","Qty":it.qty||"","Unit":it.unit||"","Width":it.width||"","Height":it.height||"","Depth":it.depth||"","Lead Time":it.leadTime||"","Unit Price":it.unitPrice||"","Discount %":it.discount||"","Total Price":it.totalPrice||"","Notes":it.notes||"","Status":it.status||"","Website":it.website||""}));
   const ws=XLSX.utils.json_to_sheet(rows);
@@ -530,15 +554,7 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols
                 <div style={{fontSize:14}}>No items yet. Import from Excel/PDF or add manually.</div>
               </div>
             )}
-            {(()=>{
-              var allItems=active.items;
-              if(search.trim()){var q=search.toLowerCase();allItems=allItems.filter(it=>(it.material||"").toLowerCase().includes(q)||(it.room||"").toLowerCase().includes(q)||(it.vendor||"").toLowerCase().includes(q)||(it.brand||"").toLowerCase().includes(q)||(it.description||"").toLowerCase().includes(q)||(it.component||"").toLowerCase().includes(q));}
-              if(sortBy!=="none"){allItems=[...allItems].sort(function(a,b){var av=(a[sortBy]||"").toLowerCase();var bv=(b[sortBy]||"").toLowerCase();return av<bv?-1:av>bv?1:0;});}
-              var roomList=search.trim()||sortBy!=="none"?["Results ("+allItems.length+")"]:rooms;
-              var getItems=function(room){return search.trim()||sortBy!=="none"?allItems:allItems.filter(it=>(it.room||"Unassigned")===room);};
-              if(allItems.length===0&&search.trim())return <div style={{textAlign:"center",padding:"40px 20px",color:"#94a3b8",fontSize:14}}>No items match "{search}"</div>;
-              return roomList.map(function(room){return <RoomTable key={room} room={room} items={getItems(room)} editId={editId} onEdit={setEditId} onUpdate={updateItem} onDelete={deleteItem} selectedItems={selectedItems} onToggleSelect={function(id){setSelectedItems(function(s){return s.includes(id)?s.filter(function(x){return x!==id;}):[...s,id];});}} visibleCols={visibleCols}/>;});
-            })()}
+            <FilteredItems items={active.items} search={search} sortBy={sortBy} rooms={rooms} editId={editId} onEdit={setEditId} onUpdate={updateItem} onDelete={deleteItem} selectedItems={selectedItems} onToggleSelect={(id)=>setSelectedItems(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id])} visibleCols={visibleCols}/>
           </div>
         )}
 
