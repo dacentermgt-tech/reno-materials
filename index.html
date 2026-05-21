@@ -25,6 +25,16 @@ window.storage={
 <script type="text/babel">
 const {useState,useEffect,useRef,useCallback}=React;
 
+if (typeof window.storage === "undefined") {
+  window.storage = {
+    get: async (k) => { try { const v=localStorage.getItem(k); return v?{key:k,value:v}:null; } catch { return null; } },
+    set: async (k, v) => { try { localStorage.setItem(k,v); return {key:k,value:v}; } catch { return null; } },
+    delete: async (k) => { try { localStorage.removeItem(k); return {key:k,deleted:true}; } catch { return null; } },
+    list: async (p) => { try { const keys=[]; for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(!p||k.startsWith(p))keys.push(k);} return {keys}; } catch { return {keys:[]}; } }
+  };
+}
+
+
 const UNITS = ["each","sq ft","lin ft","cu ft","in","ft","yd","sq yd","lb","ton","gal","bag","box","sheet","roll","pallet"];
 const STATUS_OPTS = ["Draft","Ordered","Confirmed","Delivered"];
 const STATUS_CLR = {Draft:"#94a3b8",Ordered:"#f59e0b",Confirmed:"#3b82f6",Delivered:"#22c55e"};
@@ -594,13 +604,10 @@ function ItemRow({item,idx,cols,activeCols,isMobile,isEditing,selected,onEdit,on
     <div>
       {isMobile ? (
         <div style={{borderBottom:"1px solid #f1f5f9",background:isEditing?"#fafbff":"#fff"}}>
-          {/* Programa-style mobile card */}
           <div style={{padding:"14px 12px"}}>
-            {/* Photo if available */}
             {item.photos&&item.photos.length>0&&(
               <img src={item.photos[0].url} alt="" style={{width:"100%",height:160,objectFit:"cover",borderRadius:8,marginBottom:10}}/>
             )}
-            {/* Header row */}
             <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
               <div style={{flex:1,minWidth:0,paddingRight:8}}>
                 <div style={{fontWeight:600,fontSize:15,color:"#0f172a",marginBottom:2}}>{item.material||"(tap to edit)"}</div>
@@ -611,7 +618,6 @@ function ItemRow({item,idx,cols,activeCols,isMobile,isEditing,selected,onEdit,on
                 <button onClick={e=>{e.stopPropagation();onDelete();}} style={{background:"none",border:"none",color:"#cbd5e1",cursor:"pointer",fontSize:16,padding:0}}>x</button>
               </div>
             </div>
-            {/* Visible fields as labelled rows */}
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 12px",marginBottom:10}}>
               {activeCols.filter(c=>c.id!=="material"&&c.id!=="status"&&c.id!=="component").map(col=>{
                 const val=getVal(col.id);
@@ -624,7 +630,6 @@ function ItemRow({item,idx,cols,activeCols,isMobile,isEditing,selected,onEdit,on
                 );
               })}
             </div>
-            {/* Details / Edit button */}
             <div style={{display:"flex",gap:8}}>
               <button onClick={onEdit} style={{flex:1,padding:"8px",border:"1px solid #e2e8f0",borderRadius:8,background:"#fff",fontSize:13,color:"#0f172a",fontWeight:500,cursor:"pointer"}}>{isEditing?"Close":"Details"}</button>
               <input type="checkbox" checked={selected} onChange={onToggleSelect} style={{accentColor:"#0f172a",width:18,height:18,alignSelf:"center"}}/>
