@@ -100,7 +100,7 @@ function buildEmail(project,contactIds,itemIds) {
   const toLine=recipients.map(c=>c.name+" <"+c.email+">").join("; ");
   const rows=items.map((it,i)=>{
     const dims=[it.width&&"W:"+it.width,it.height&&"H:"+it.height,it.depth&&"D:"+it.depth].filter(Boolean).join(" x ");
-    return [(i+1)+". "+it.material,it.room&&"   Room: "+it.room,it.description&&"   Spec: "+it.description,it.brand&&"   Brand: "+it.brand,it.color&&"   Color: "+it.color,it.finish&&"   Finish: "+it.finish,it.qty&&"   Qty: "+it.qty+" "+it.unit,dims&&"   Dims: "+dims,it.notes&&"   Notes: "+it.notes].filter(Boolean).join("\n");
+    return [(i+1)+". "+it.material,iRoom&&"   Room: "+iRoom,it.description&&"   Spec: "+it.description,iBrand&&"   Brand: "+iBrand,iColor&&"   Color: "+iColor,iFinish&&"   Finish: "+iFinish,it.qty&&"   Qty: "+it.qty+" "+it.unit,dims&&"   Dims: "+dims,iNotes&&"   Notes: "+iNotes].filter(Boolean).join("\n");
   }).join("\n\n");
   return "To: "+toLine+"\nSubject: Quote Request - "+project.name+"\n\nDear "+recipients.map(c=>c.name).join(" & ")+",\n\nPlease find our quote request for the following materials for "+project.name+". Kindly provide pricing, availability and lead times.\n\n"+"-".repeat(50)+"\n\n"+rows+"\n\n"+"-".repeat(50)+"\n\nKind regards,\n"+(project.company||"[Your Company]");
 }
@@ -131,7 +131,7 @@ function FinancialTab({items,t}) {
       </div>
       <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,overflow:"hidden"}}>
         <div style={{display:"grid",gridTemplateColumns:"1fr 110px 70px 80px 80px 80px",background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>
-          {["Item",t.vendor,"Qty","Unit Price","Discount",t.totalCost].map((h,i)=>(
+          {["Item",Vendor,"Qty","Unit Price","Discount",Total Cost].map((h,i)=>(
             <div key={i} style={{padding:"8px 10px",fontSize:10,fontWeight:600,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.5px"}}>{h}</div>
           ))}
         </div>
@@ -139,9 +139,9 @@ function FinancialTab({items,t}) {
           <div key={it.id} style={{display:"grid",gridTemplateColumns:"1fr 110px 70px 80px 80px 80px",borderBottom:"1px solid #f1f5f9",alignItems:"center"}}>
             <div style={{padding:"10px"}}>
               <div style={{fontSize:13,fontWeight:500,color:"#0f172a"}}>{it.material||"(no name)"}</div>
-              {it.room&&<div style={{fontSize:11,color:"#94a3b8"}}>{it.room}</div>}
+              {iRoom&&<div style={{fontSize:11,color:"#94a3b8"}}>{iRoom}</div>}
             </div>
-            <div style={{padding:"10px",fontSize:12,color:"#374151",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{it.vendor||"-"}</div>
+            <div style={{padding:"10px",fontSize:12,color:"#374151",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{iVendor||"-"}</div>
             <div style={{padding:"10px",fontSize:12,color:"#374151"}}>{it.qty?it.qty+" "+it.unit:"-"}</div>
             <div style={{padding:"10px",fontSize:12,color:"#374151"}}>{it.unitPrice?"$"+parseFloat(it.unitPrice).toFixed(2):"-"}</div>
             <div style={{padding:"10px",fontSize:12,color:"#374151"}}>{it.discount?it.discount+"%":"-"}</div>
@@ -187,7 +187,7 @@ function FolderInput({value, onSave}) {
 function StatusSummary({items,t}) {
   var counts={Draft:0,Ordered:0,Confirmed:0,Delivered:0};
   items.forEach(function(it){if(counts[it.status]!==undefined)counts[it.status]++;});
-  var labels={Draft:t.draft,Ordered:t.ordered,Confirmed:t.confirmed,Delivered:t.delivered};
+  var labels={Draft:Draft,Ordered:Ordered,Confirmed:Confirmed,Delivered:Delivered};
   var total=items.length;
   if(!total)return null;
   return (
@@ -214,7 +214,7 @@ function FilteredItems({items,search,sortBy,rooms,editId,onEdionUpdate,onDelete,
   var allItems=items;
   if(search&&search.trim()){
     var q=search.toLowerCase();
-    allItems=allItems.filter(function(it){return (it.material||"").toLowerCase().includes(q)||(it.room||"").toLowerCase().includes(q)||(it.vendor||"").toLowerCase().includes(q)||(it.brand||"").toLowerCase().includes(q)||(it.description||"").toLowerCase().includes(q)||(it.component||"").toLowerCase().includes(q);});
+    allItems=allItems.filter(function(it){return (it.material||"").toLowerCase().includes(q)||(iRoom||"").toLowerCase().includes(q)||(iVendor||"").toLowerCase().includes(q)||(iBrand||"").toLowerCase().includes(q)||(it.description||"").toLowerCase().includes(q)||(it.component||"").toLowerCase().includes(q);});
   }
   if(sortBy&&sortBy!=="none"){
     allItems=[...allItems].sort(function(a,b){var av=(a[sortBy]||"").toLowerCase();var bv=(b[sortBy]||"").toLowerCase();return av<bv?-1:av>bv?1:0;});
@@ -227,7 +227,7 @@ function FilteredItems({items,search,sortBy,rooms,editId,onEdionUpdate,onDelete,
   return (
     <div>
       {roomList.map(function(room){
-        var roomItems=isFiltered?allItems:allItems.filter(function(it){return (it.room||"Unassigned")===room;});
+        var roomItems=isFiltered?allItems:allItems.filter(function(it){return (iRoom||"Unassigned")===room;});
         return <RoomTable key={room} room={room} items={roomItems} editId={editId} onEdit={onEdit} onUpdate={onUpdate} onDelete={onDelete} selectedItems={selectedItems} onToggleSelect={onToggleSelect} visibleCols={visibleCols}/>;
       })}
     </div>
@@ -235,7 +235,7 @@ function FilteredItems({items,search,sortBy,rooms,editId,onEdionUpdate,onDelete,
 }
 
 function exportToExcel(active) {
-  const rows=active.items.map((it,i)=>({"#":i+1,"Component":it.component||"",t.room:it.room||"",t.itemDesc:it.material||"",t.clientDesc:it.description||"",t.vendor:it.vendor||"",t.brand:it.brand||"",t.color:it.color||"",t.finish:it.finish||"","Qty":it.qty||"","Unit":it.unit||"","Width":it.width||"","Height":it.height||"","Depth":it.depth||"",t.leadTime:it.leadTime||"","Unit Price":it.unitPrice||"","Discount %":it.discount||"","Total Price":it.totalPrice||"","Notes":it.notes||"","Status":it.status||"","Website":it.website||""}));
+  const rows=active.items.map((it,i)=>({"#":i+1,"Component":it.component||"",Room:iRoom||"",Item Desc:it.material||"",Client Desc:it.description||"",Vendor:iVendor||"",Brand:iBrand||"",Color:iColor||"",Finish:iFinish||"","Qty":it.qty||"","Unit":it.unit||"","Width":it.width||"","Height":it.height||"","Depth":it.depth||"",Lead Time:iLead Time||"","Unit Price":it.unitPrice||"","Discount %":it.discount||"","Total Price":it.totalPrice||"","Notes":iNotes||"","Status":it.status||"","Website":it.website||""}));
   const ws=XLSX.utils.json_to_sheet(rows);
   const wb=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb,ws,"Materials");
@@ -316,7 +316,7 @@ function HomeScreen({projects,saving,apiKey,onLang,onSaveApiKey,onVendors,onOpen
             <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
               <div style={{flex:1}}><label style={lbl}>Anthropic API Key</label><input value={keyInput} onChange={e=>setKeyInput(e.target.value)} type="password" placeholder="sk-ant-..." style={inp}/></div>
               <Btn onClick={()=>{onSaveApiKey(keyInput);setShowSettings(false);}} label="Done" disabled={!keyInput.trim()}/>
-              <Btn ghost onClick={()=>setShowSettings(false)} label=t.cancel/>
+              <Btn ghost onClick={()=>setShowSettings(false)} label=Cancel/>
             </div>
             {apiKey&&<div style={{fontSize:12,color:"#22c55e",marginTop:8}}>API key saved - PDF import enabled</div>}
           </div>
@@ -329,8 +329,8 @@ function HomeScreen({projects,saving,apiKey,onLang,onSaveApiKey,onVendors,onOpen
               <div><label style={lbl}>Company</label><input value={company} onChange={e=>setCompany(e.target.value)} placeholder="Company" style={inp}/></div>
             </div>
             <div style={{display:"flex",gap:8}}>
-              <Btn onClick={()=>{if(!name.trim())return;onCreateProject(name.trim(),company.trim());setName("");setCompany("");setShowForm(false);}} label=t.createProject disabled={!name.trim()}/>
-              <Btn ghost onClick={()=>setShowForm(false)} label=t.cancel/>
+              <Btn onClick={()=>{if(!name.trim())return;onCreateProject(name.trim(),company.trim());setName("");setCompany("");setShowForm(false);}} label=Create Project disabled={!name.trim()}/>
+              <Btn ghost onClick={()=>setShowForm(false)} label=Cancel/>
             </div>
           </div>
         )}
@@ -338,7 +338,7 @@ function HomeScreen({projects,saving,apiKey,onLang,onSaveApiKey,onVendors,onOpen
         {projects.length===0&&<div style={{textAlign:"center",padding:"48px 0",color:"#cbd5e1",fontSize:14}}>"No projects yet. Create your first one above."</div>}
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {projects.map(p=>{
-            const rooms=[...new Set(p.items.map(it=>it.room).filter(Boolean))];
+            const rooms=[...new Set(p.items.map(it=>iRoom).filter(Boolean))];
             return (
               <div key={p.id} onClick={()=>onOpen(p.id)} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:"14px 16px",display:"flex",alignItems:"center",gap:12,cursor:"pointer"}}>
                 <div style={{flex:1,minWidth:0}}>
@@ -366,7 +366,7 @@ function VendorsScreen({vendors,onBack,onChange}) {
       <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"0 24px",display:"flex",alignItems:"center",height:56,gap:12}}>
         <button onClick={onBack} style={{background:"none",border:"1px solid #e2e8f0",borderRadius:6,padding:"4px 12px",cursor:"pointer",fontSize:13,color:"#64748b"}}>Back</button>
         <span style={{fontWeight:600,fontSize:15,color:"#0f172a"}}>Vendor Directory</span>
-        <div style={{marginLeft:"auto"}}><Btn small onClick={()=>setShowForm(v=>!v)} label={showForm?t.cancel:"+ Add Vendor"}/></div>
+        <div style={{marginLeft:"auto"}}><Btn small onClick={()=>setShowForm(v=>!v)} label={showForm?Cancel:"+ Add Vendor"}/></div>
       </div>
       <div style={{maxWidth:680,margin:"0 auto",padding:"24px"}}>
         {showForm&&(
@@ -456,7 +456,7 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols
   const applyImport=()=>{if(!importState||!importState.items.length)return;updateActive(p=>({...p,items:[...p.items,...importState.items]}));setImportState(null);};
   const addContact=()=>{if(!contactForm.name.trim()||!contactForm.email.trim())return;const c={...contactForm,id:"c-"+Date.now()};updateActive(p=>({...p,contacts:[...p.contacts,c]}));setShowContactForm(false);setContactForm({name:"",email:"",type:"vendor"});};
   const emailText=active&&selectedItems?buildEmail(active,selectedContacts,selectedItems):"";
-  const rooms=[...new Set(active.items.map(it=>it.room||"Unassigned"))];
+  const rooms=[...new Set(active.items.map(it=>iRoom||"Unassigned"))];
 
   return (
     <div style={{fontFamily:"system-ui,sans-serif",background:"#f8fafc",minHeight:"100vh"}}>
@@ -465,7 +465,7 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols
         <span style={{fontWeight:700,fontSize:14,color:"#0f172a",flex:1,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>{active.name}</span>
         {saving&&<span style={{fontSize:11,color:"#94a3b8"}}>Saving...</span>}
         <button onClick={()=>exportToExcel(active)} style={{...bsty,background:"#f1f5f9",color:"#64748b",fontSize:12}}>Export XLS</button>
-        <button onClick={()=>setShowNotes(function(v){return !v;})} style={{...bsty,background:showNotes?"#0f172a":"#f1f5f9",color:showNotes?"#fff":"#64748b",fontSize:12}}>{showNotes?t.hideNotes:t.notes}</button>
+        <button onClick={()=>setShowNotes(function(v){return !v;})} style={{...bsty,background:showNotes?"#0f172a":"#f1f5f9",color:showNotes?"#fff":"#64748b",fontSize:12}}>{showNotes?Hide Notes:Notes}</button>
       </div>
       <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"0 20px",display:"flex",alignItems:"center",gap:0}}>
         {["items","financial","email","contacts"].map(tabId=>(
@@ -476,8 +476,8 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols
         <div style={{marginLeft:"auto",position:"relative"}}>
           <select onChange={e=>{if(e.target.value){const el=document.getElementById("room-"+e.target.value);if(el)el.scrollIntoView({behavior:"smooth",block:"start"});}e.target.value="";}} style={{fontSize:12,padding:"4px 8px",border:"1px solid #e2e8f0",borderRadius:6,background:"#fff",color:"#64748b",cursor:"pointer"}}>
             <option value="">View Section</option>
-            {[...new Set(active.items.map(it=>it.room||"Unassigned"))].map(r=>(
-              <option key={r} value={r}>{r} ({active.items.filter(it=>(it.room||"Unassigned")===r).length})</option>
+            {[...new Set(active.items.map(it=>iRoom||"Unassigned"))].map(r=>(
+              <option key={r} value={r}>{r} ({active.items.filter(it=>(iRoom||"Unassigned")===r).length})</option>
             ))}
           </select>
         </div>
@@ -513,14 +513,14 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols
                 <option value="vendor">Sort: Vendor</option>
                 <option value="material">Sort: Name</option>
               </select>
-              <button onClick={()=>{copyText(window.location.href);setShowShareMsg(true);setTimeout(()=>setShowShareMsg(false),2500);}} style={{...bsty,background:showShareMsg?"#22c55e":"#f1f5f9",color:showShareMsg?"#fff":"#64748b",fontSize:12,whiteSpace:"nowrap"}}>{showShareMsg?t.copied:t.copyLink}</button>
+              <button onClick={()=>{copyText(window.location.href);setShowShareMsg(true);setTimeout(()=>setShowShareMsg(false),2500);}} style={{...bsty,background:showShareMsg?"#22c55e":"#f1f5f9",color:showShareMsg?"#fff":"#64748b",fontSize:12,whiteSpace:"nowrap"}}>{showShareMsg?Copied!:CopyLink}</button>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,padding:"0 0 10px",flexWrap:"wrap"}}>
               <Btn small onClick={addItem} label="+ Add Item"/>
               <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={handleFile}/>
-              <Btn small ghost onClick={()=>fileRef.current&&fileRef.current.click()} label={importing?t.readingExcel:t.importExcel}/>
+              <Btn small ghost onClick={()=>fileRef.current&&fileRef.current.click()} label={importing?Reading...:Import Excel}/>
               <input ref={pdfRef} type="file" accept="application/pdf" style={{display:"none"}} onChange={handlePdf}/>
-              <Btn small ghost onClick={()=>pdfRef.current&&pdfRef.current.click()} label={parsingPdf?t.readingPdf:t.importPdf}/>
+              <Btn small ghost onClick={()=>pdfRef.current&&pdfRef.current.click()} label={parsingPdf?Reading PDF...:Import PDF}/>
               <Btn small ghost onClick={()=>setShowColPicker(v=>!v)} label="Columns"/>
               {!apiKey&&<span style={{fontSize:11,color:"#f59e0b"}}>Add API key in Settings (home screen) to enable PDF import</span>}
             </div>
@@ -528,7 +528,7 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols
               <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:"12px 14px",marginBottom:10}}>
                 <div style={{fontSize:12,fontWeight:600,color:"#0f172a",marginBottom:8}}>Toggle visible columns</div>
                 <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                  {[{id:"component",label:"Component"},{id:"material",label:"Item Desc"},{id:"description",label:"Client Desc"},{id:"vendor",label:t.vendor},{id:"brand",label:t.brand},{id:"color",label:t.color},{id:"finish",label:t.finish},{id:"width",label:"Width"},{id:"height",label:"Height"},{id:"depth",label:"Depth"},{id:"qty",label:"Qty"},{id:"leadTime",label:t.leadTime},{id:"status",label:"Status"},{id:"notes",label:"Notes"}].map(col=>{
+                  {[{id:"component",label:"Component"},{id:"material",label:"Item Desc"},{id:"description",label:"Client Desc"},{id:"vendor",label:Vendor},{id:"brand",label:Brand},{id:"color",label:Color},{id:"finish",label:Finish},{id:"width",label:"Width"},{id:"height",label:"Height"},{id:"depth",label:"Depth"},{id:"qty",label:"Qty"},{id:"leadTime",label:Lead Time},{id:"status",label:"Status"},{id:"notes",label:"Notes"}].map(col=>{
                     const on=visibleCols.includes(col.id);
                     return <button key={col.id} onClick={()=>{var next=on?visibleCols.filter(c=>c!==col.id):[...visibleCols,col.id];setVisibleCols(next);onSaveVisibleCols(next);}} style={{fontSize:12,borderRadius:20,padding:"3px 10px",border:on?"none":"0.5px solid #e2e8f0",background:on?"#0f172a":"#f8fafc",color:on?"#fff":"#64748b",cursor:"pointer"}}>{col.label}</button>;
                   })}
@@ -544,7 +544,7 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols
                 </div>
                 {importState.warnings&&importState.warnings.map((w,i)=><div key={i} style={{fontSize:12,color:"#d97706"}}>Warning: {w}</div>)}
                 <div style={{maxHeight:120,overflowY:"auto",margin:"8px 0"}}>
-                  {importState.items.slice(0,5).map((it,i)=><div key={i} style={{fontSize:12,color:"#374151",padding:"2px 0"}}>{it.material}{it.room?" - "+it.room:""}</div>)}
+                  {importState.items.slice(0,5).map((it,i)=><div key={i} style={{fontSize:12,color:"#374151",padding:"2px 0"}}>{it.material}{iRoom?" - "+iRoom:""}</div>)}
                   {importState.items.length>5&&<div style={{fontSize:12,color:"#94a3b8"}}>+{importState.items.length-5} more...</div>}
                 </div>
                 <div style={{display:"flex",gap:8}}>
@@ -587,7 +587,7 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols
               <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:14}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                   <span style={{fontSize:13,fontWeight:600,color:"#0f172a"}}>Items ({selectedItems.length} selected)</span>
-                  <button onClick={()=>setSelectedItems(s=>s.length===active.items.length?[]:active.items.map(it=>it.id))} style={{fontSize:12,color:"#64748b",background:"none",border:"none",cursor:"pointer"}}>{selectedItems.length===active.items.length?t.deselectAll:t.selectAll}</button>
+                  <button onClick={()=>setSelectedItems(s=>s.length===active.items.length?[]:active.items.map(it=>it.id))} style={{fontSize:12,color:"#64748b",background:"none",border:"none",cursor:"pointer"}}>{selectedItems.length===active.items.length?Deselect all:Select all}</button>
                 </div>
                 <div style={{maxHeight:200,overflowY:"auto"}}>
                   {active.items.map(it=>{
@@ -597,7 +597,7 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols
                         <input type="checkbox" checked={checked} onChange={()=>setSelectedItems(s=>s.includes(it.id)?s.filter(x=>x!==it.id):[...s,it.id])} style={{accentColor:"#0f172a"}}/>
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{fontSize:12,fontWeight:500,color:"#0f172a",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{it.material||"(no name)"}</div>
-                          {it.room&&<div style={{fontSize:11,color:"#94a3b8"}}>{it.room}</div>}
+                          {iRoom&&<div style={{fontSize:11,color:"#94a3b8"}}>{iRoom}</div>}
                         </div>
                       </label>
                     );
@@ -610,7 +610,7 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols
                 <span style={{fontSize:13,fontWeight:600,color:"#0f172a"}}>Email Preview</span>
                 <div style={{display:"flex",gap:8}}>
                   <button onClick={()=>{const r=active.contacts.filter(c=>selectedContacts.includes(c.id));const to=r.map(c=>c.email).join(";");window.location.href="mailto:"+to+"?subject="+encodeURIComponent("Quote Request - "+active.name)+"&body="+encodeURIComponent(emailText);}} style={{...bsty,background:"#0f172a",color:"#fff"}}>Open in Outlook</button>
-                  <button onClick={()=>{copyText(emailText);setEmailCopied(true);setTimeout(()=>setEmailCopied(false),2000);}} style={{...bsty,background:emailCopied?"#22c55e":"#f1f5f9",color:emailCopied?"#fff":"#0f172a"}}>{emailCopied?t.copied:t.copy}</button>
+                  <button onClick={()=>{copyText(emailText);setEmailCopied(true);setTimeout(()=>setEmailCopied(false),2000);}} style={{...bsty,background:emailCopied?"#22c55e":"#f1f5f9",color:emailCopied?"#fff":"#0f172a"}}>{emailCopied?Copied!:Copy}</button>
                 </div>
               </div>
               <pre style={{fontFamily:"monospace",fontSize:12,lineHeight:1.6,color:"#374151",whiteSpace:"pre-wrap",wordBreak:"break-word",background:"#f8fafc",borderRadius:6,padding:12,border:"1px solid #e2e8f0",maxHeight:320,overflowY:"auto",margin:0}}>{emailText||"Select recipients and items above to preview."}</pre>
@@ -621,8 +621,8 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols
         {tab==="contacts"&&(
           <div style={{paddingTop:16}}>
             <div style={{display:"flex",gap:8,marginBottom:12}}>
-              {vendors.length>0&&<Btn small ghost onClick={()=>setShowVendorPicker(v=>!v)} label=t.addFromDirectory/>}
-              <Btn small ghost onClick={()=>setShowContactForm(v=>!v)} label={showContactForm?t.cancel:"+ New Contact"}/>
+              {vendors.length>0&&<Btn small ghost onClick={()=>setShowVendorPicker(v=>!v)} label=Add from Directory/>}
+              <Btn small ghost onClick={()=>setShowContactForm(v=>!v)} label={showContactForm?Cancel:"+ New Contact"}/>
             </div>
             {showVendorPicker&&(
               <div style={{background:"#fffbeb",border:"1px solid #fde68a",borderRadius:8,padding:12,marginBottom:12}}>
@@ -678,17 +678,17 @@ function RoomTable({room,items,editId,onEdionUpdate,onDelete,selectedItems,onTog
   const isMobile=useIsMobile();
   const COL_DEFS = [
     {id:"component",label:"Component",w:"120px"},
-    {id:"material",label:t.itemDesc,w:"1fr"},
+    {id:"material",label:Item Desc,w:"1fr"},
     {id:"description",label:"Client Desc",w:"120px"},
-    {id:"vendor",label:t.vendor,w:"90px"},
-    {id:"brand",label:t.brand,w:"70px"},
-    {id:"color",label:t.color,w:"70px"},
-    {id:"finish",label:t.finish,w:"70px"},
+    {id:"vendor",label:Vendor,w:"90px"},
+    {id:"brand",label:Brand,w:"70px"},
+    {id:"color",label:Color,w:"70px"},
+    {id:"finish",label:Finish,w:"70px"},
     {id:"width",label:"W",w:"50px"},
     {id:"height",label:"H",w:"50px"},
     {id:"depth",label:"D",w:"50px"},
     {id:"qty",label:"Qty",w:"70px"},
-    {id:"leadTime",label:t.leadTime,w:"80px"},
+    {id:"leadTime",label:Lead Time,w:"80px"},
     {id:"status",label:"Status",w:"80px"},
   ];
   const activeCols = COL_DEFS.filter(c=>visibleCols.includes(c.id));
@@ -700,7 +700,7 @@ function RoomTable({room,items,editId,onEdionUpdate,onDelete,selectedItems,onTog
         <button onClick={()=>setCollapsed(c=>!c)} style={{background:"none",border:"none",cursor:"pointer",fontSize:12,color:"#64748b",padding:"0 4px"}}>{collapsed?"[+]":"[-]"}</button>
         <span style={{fontWeight:700,fontSize:13,color:"#0f172a"}}>{room}</span>
         <span style={{fontSize:12,color:"#94a3b8"}}>{items.length}</span>
-        <span style={{marginLeft:"auto",fontSize:12,color:"#94a3b8",cursor:"pointer"}} onClick={()=>setCollapsed(c=>!c)}>{collapsed?t.expand:t.collapse}</span>
+        <span style={{marginLeft:"auto",fontSize:12,color:"#94a3b8",cursor:"pointer"}} onClick={()=>setCollapsed(c=>!c)}>{collapsed?Expand:Collapse}</span>
       </div>
       {!collapsed&&(
         <div>
@@ -718,7 +718,7 @@ function ItemRow({item,idx,cols,activeCols,visibleCols,isMobile,isEditing,select
   const sc=STATUS_CLR[item.status]||"#94a3b8";
   const getVal = (id) => {
     if(id==="component") return item.component||"-";
-    if(id==="material") return item.material||"("+t.edit+")";
+    if(id==="material") return item.material||"("+Edit+")";
     if(id==="description") return item.description||"-";
     if(id==="vendor") return item.vendor||"-";
     if(id==="brand") return item.brand||"-";
@@ -746,7 +746,7 @@ function ItemRow({item,idx,cols,activeCols,visibleCols,isMobile,isEditing,select
             )}
             <div style={{flex:1,minWidth:0}}>
               <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:2}}>
-                <div style={{fontWeight:600,fontSize:14,color:"#0f172a",lineHeight:1.3,paddingRight:8,flex:1,minWidth:0}}>{item.material||"("+t.edit+")"}</div>
+                <div style={{fontWeight:600,fontSize:14,color:"#0f172a",lineHeight:1.3,paddingRight:8,flex:1,minWidth:0}}>{item.material||"("+Edit+")"}</div>
                 <span onClick={e=>{e.stopPropagation();onUpdate({status:STATUS_OPTS[(STATUS_OPTS.indexOf(item.status)+1)%STATUS_OPTS.length]});}} style={{fontSize:10,fontWeight:600,color:sc,cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>{item.status}</span>
               </div>
               {item.component&&<div style={{fontSize:11,color:"#94a3b8",marginBottom:4}}>{item.component}</div>}
@@ -765,10 +765,10 @@ function ItemRow({item,idx,cols,activeCols,visibleCols,isMobile,isEditing,select
                 })}
               </div>
               <div style={{display:"flex",alignItems:"center",gap:6}}>
-                <button onClick={onEdit} style={{flex:1,padding:"6px 10px",border:"1px solid #e2e8f0",borderRadius:6,background:"#fff",fontSize:12,color:"#0f172a",fontWeight:500,cursor:"pointer"}}>{isEditing?t.close:t.details}</button>
+                <button onClick={onEdit} style={{flex:1,padding:"6px 10px",border:"1px solid #e2e8f0",borderRadius:6,background:"#fff",fontSize:12,color:"#0f172a",fontWeight:500,cursor:"pointer"}}>{isEditing?Close:Details}</button>
                 {item.website&&<a href={item.website.startsWith("http")?item.website:"https://"+item.website} target="_blank" rel="noreferrer" style={{padding:"6px 10px",borderRadius:6,background:"#eff6ff",border:"1px solid #bfdbfe",fontSize:12,color:"#1d4ed8",textDecoration:"none",whiteSpace:"nowrap",fontWeight:500}}>View Product</a>}
                 <input type="checkbox" checked={selected} onChange={onToggleSelect} style={{accentColor:"#0f172a",width:16,height:16,flexShrink:0}}/>
-                <button onClick={e=>{e.stopPropagation();if(window.confirm(t.removeConfirm+" "+(item.material||"this item")+"?"))onDelete();}} style={{background:"none",border:"none",color:"#e2e8f0",cursor:"pointer",fontSize:16,padding:0,marginLeft:"auto"}}>x</button>
+                <button onClick={e=>{e.stopPropagation();if(window.confirm(Remove+" "+(item.material||"this item")+"?"))onDelete();}} style={{background:"none",border:"none",color:"#e2e8f0",cursor:"pointer",fontSize:16,padding:0,marginLeft:"auto"}}>x</button>
               </div>
             </div>
           </div>
@@ -780,14 +780,14 @@ function ItemRow({item,idx,cols,activeCols,visibleCols,isMobile,isEditing,select
         {activeCols.map(col=>{
           if(col.id==="material") return (
             <div key={col.id} style={{padding:"6px 8px",display:"flex",flexDirection:"column",justifyContent:"center",minWidth:0,cursor:"pointer"}} onClick={onEdit}>
-              <div style={{fontWeight:600,fontSize:13,color:"#0f172a",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.material||"("+t.edit+")"}</div>
+              <div style={{fontWeight:600,fontSize:13,color:"#0f172a",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{item.material||"("+Edit+")"}</div>
               {item.description&&<div style={{fontSize:11,color:"#64748b",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",marginTop:1}}>{item.description}</div>}
             </div>
           );
           if(col.id==="status") return (
             <div key={col.id} style={{padding:"6px 8px",display:"flex",alignItems:"center",gap:4}}>
               <span onClick={()=>onUpdate({status:STATUS_OPTS[(STATUS_OPTS.indexOf(item.status)+1)%STATUS_OPTS.length]})} style={{fontSize:10,fontWeight:600,color:sc,cursor:"pointer",whiteSpace:"nowrap"}}>{item.status}</span>
-              <button onClick={e=>{e.stopPropagation();if(window.confirm(t.removeConfirm+" "+(item.material||"this item")+"?"))onDelete();}} style={{background:"none",border:"none",color:"#e2e8f0",cursor:"pointer",fontSize:12,padding:"0 2px"}}>x</button>
+              <button onClick={e=>{e.stopPropagation();if(window.confirm(Remove+" "+(item.material||"this item")+"?"))onDelete();}} style={{background:"none",border:"none",color:"#e2e8f0",cursor:"pointer",fontSize:12,padding:"0 2px"}}>x</button>
             </div>
           );
           return <div key={col.id} style={{padding:"6px 8px",fontSize:12,color:"#374151",display:"flex",alignItems:"center",overflow:"hidden"}}><span style={{whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{getVal(col.id)}</span></div>;
@@ -799,12 +799,12 @@ function ItemRow({item,idx,cols,activeCols,visibleCols,isMobile,isEditing,select
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:10}}>
             <div style={{gridColumn:"1/-1"}}><label style={lbl}>"Item Description"</label><input value={item.material} onChange={e=>onUpdate({material:e.target.value})} placeholder="Item name" style={inp}/></div>
             <div><label style={lbl}>"Item Component"</label><input value={item.component} onChange={e=>onUpdate({component:e.target.value})} placeholder="Component code" style={inp}/></div>
-            <div><label style={lbl}>"Room"</label><input value={item.room} onChange={e=>onUpdate({room:e.target.value})} placeholder=t.room style={inp}/></div>
+            <div><label style={lbl}>"Room"</label><input value={item.room} onChange={e=>onUpdate({room:e.target.value})} placeholder=Room style={inp}/></div>
             <div><label style={lbl}>"Client Description"</label><input value={item.description} onChange={e=>onUpdate({description:e.target.value})} placeholder="Client description" style={inp}/></div>
-            <div><label style={lbl}>"Vendor"</label><input value={item.vendor} onChange={e=>onUpdate({vendor:e.target.value})} placeholder=t.vendor style={inp}/></div>
-            <div><label style={lbl}>"Brand"</label><input value={item.brand} onChange={e=>onUpdate({brand:e.target.value})} placeholder=t.brand style={inp}/></div>
-            <div><label style={lbl}>"Color"</label><input value={item.color} onChange={e=>onUpdate({color:e.target.value})} placeholder=t.color style={inp}/></div>
-            <div><label style={lbl}>"Finish"</label><input value={item.finish} onChange={e=>onUpdate({finish:e.target.value})} placeholder=t.finish style={inp}/></div>
+            <div><label style={lbl}>"Vendor"</label><input value={item.vendor} onChange={e=>onUpdate({vendor:e.target.value})} placeholder=Vendor style={inp}/></div>
+            <div><label style={lbl}>"Brand"</label><input value={item.brand} onChange={e=>onUpdate({brand:e.target.value})} placeholder=Brand style={inp}/></div>
+            <div><label style={lbl}>"Color"</label><input value={item.color} onChange={e=>onUpdate({color:e.target.value})} placeholder=Color style={inp}/></div>
+            <div><label style={lbl}>"Finish"</label><input value={item.finish} onChange={e=>onUpdate({finish:e.target.value})} placeholder=Finish style={inp}/></div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:10,marginBottom:10}}>
             <div><label style={lbl}>"Qty"</label><input value={item.qty} onChange={e=>onUpdate({qty:e.target.value})} type="number" min="0" placeholder="0" style={inp}/></div>
