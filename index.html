@@ -593,13 +593,22 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols
     </div>
   );
 }
+
+function useIsMobile() {
+  const [isMobile,setIsMobile]=useState(function(){return typeof window!=="undefined"&&window.innerWidth<768;});
+  useEffect(function(){
+    function check(){setIsMobile(window.innerWidth<768);}
+    window.addEventListener('resize',check);
+    check();
+    return function(){window.removeEventListener('resize',check);};
+  },[]);
+  return isMobile;
+}
 </script>
 <script type="text/babel">
 function RoomTable({room,items,editId,onEdit,onUpdate,onDelete,selectedItems,onToggleSelect,visibleCols}) {
   const [collapsed,setCollapsed]=useState(false);
-  const [windowWidth,setWindowWidth]=useState(window.innerWidth);
-  useEffect(function(){function handleResize(){setWindowWidth(window.innerWidth);}window.addEventListener('resize',handleResize);return function(){window.removeEventListener('resize',handleResize);};},[]);
-  const isMobile = windowWidth < 768;
+  const isMobile=useIsMobile();
   const COL_DEFS = [
     {id:"component",label:"Component",w:"120px"},
     {id:"material",label:"Item Description",w:"1fr"},
