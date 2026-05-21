@@ -12,31 +12,18 @@
 <style>*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:#f8fafc}input,select,button,textarea{font-family:inherit}</style>
 </head><body>
 <div id="root"></div>
-<div id="error" style="padding:20px;color:red;font-family:monospace;font-size:13px;white-space:pre-wrap;display:none"></div>
-<script>
-window.onerror = function(msg, src, line, col, err) {
-  document.getElementById('error').style.display='block';
-  document.getElementById('error').textContent = 'ERROR: ' + msg + '\nLine: ' + line + ' Col: ' + col + '\nFile: ' + src;
-  return false;
-};
-window.addEventListener('unhandledrejection', function(e) {
-  document.getElementById('error').style.display='block';
-  document.getElementById('error').textContent += '\nPromise rejection: ' + e.reason;
-});
-</script>
 <script>
 const firebaseConfig={apiKey:"AIzaSyA4ODk4lki5NiLgjQyfZN961rhkmcTPAuc",authDomain:"reno-materials-order-form.firebaseapp.com",projectId:"reno-materials-order-form",storageBucket:"reno-materials-order-form.firebasestorage.app",messagingSenderId:"182946152456",appId:"1:182946152456:web:c513f3862d020642acd1bd"};
 firebase.initializeApp(firebaseConfig);const db=firebase.firestore();const COLL="storage";
-function ekey(k){return k.replace(/\//g,"__S__");}
+function ekey(k){return k.replace(/[/]/g,"__S__");}
 window.storage={
-  get:async(k)=>{try{const d=await db.collection(COLL).doc(ekey(k)).get();if(!d.exists)return null;return{key:k,value:d.data().value};}catch{return null;}},
-  set:async(k,v)=>{try{await db.collection(COLL).doc(ekey(k)).set({key:k,value:v,ts:Date.now()});return{key:k,value:v};}catch{return null;}},
-  "delete":async(k)=>{try{await db.collection(COLL).doc(ekey(k)).delete();return{key:k,deleted:true};}catch{return null;}},
-  list:async(p)=>{try{let q=db.collection(COLL);if(p)q=q.where("key",">=",p).where("key","<",p+"\uf8ff");const s=await q.get();return{keys:s.docs.map(d=>d.data().key).filter(k=>!p||k.startsWith(p))};}catch{return{keys:[]};}}
+  get:async function(k){try{var d=await db.collection(COLL).doc(ekey(k)).get();if(!d.exists)return null;return{key:k,value:d.data().value};}catch(e){return null;}},
+  set:async function(k,v){try{await db.collection(COLL).doc(ekey(k)).set({key:k,value:v,ts:Date.now()});return{key:k,value:v};}catch(e){return null;}},
+  remove:async function(k){try{await db.collection(COLL).doc(ekey(k)).delete();return{key:k,deleted:true};}catch(e){return null;}},
+  list:async function(p){try{var q=db.collection(COLL);if(p)q=q.where("key",">=",p).where("key","<",p+"\uf8ff");var s=await q.get();return{keys:s.docs.map(function(d){return d.data().key;}).filter(function(k){return !p||k.startsWith(p);})};}catch(e){return{keys:[]};}}
 };</script>
 <script type="text/babel">
 const {useState,useEffect,useRef,useCallback}=React;
-
 if (typeof window.storage === "undefined") {
   window.storage = {
     get: async (k) => { try { const v=localStorage.getItem(k); return v?{key:k,value:v}:null; } catch { return null; } },
@@ -217,7 +204,8 @@ function App() {
 
   return <HomeScreen projects={projects} saving={saving} apiKey={apiKey} onSaveApiKey={saveApiKey} onVendors={()=>setScreen("vendors")} onOpen={(id)=>{setActiveId(id);setScreen("project");}} onCreateProject={(name,company)=>{const p=mkProject(name,company);setProjects(prev=>[p,...prev]);persist(p);setActiveId(p.id);setScreen("project");}} onDeleteProject={async(id)=>{try{await window.storage.delete("proj:"+id);}catch{}setProjects(prev=>prev.filter(p=>p.id!==id));}}/>;
 }
-
+</script>
+<script type="text/babel">
 function HomeScreen({projects,saving,apiKey,onSaveApiKey,onVendors,onOpen,onCreateProject,onDeleteProject}) {
   const [name,setName]=useState("");
   const [company,setCompany]=useState("");
@@ -321,7 +309,8 @@ function VendorsScreen({vendors,onBack,onChange}) {
     </div>
   );
 }
-
+</script>
+<script type="text/babel">
 function ProjectScreen({active,vendors,saving,apiKey,onBack,updateActive}) {
   const [tab,setTab]=useState("items");
   const [editId,setEditId]=useState(null);
@@ -553,7 +542,8 @@ function ProjectScreen({active,vendors,saving,apiKey,onBack,updateActive}) {
     </div>
   );
 }
-
+</script>
+<script type="text/babel">
 function RoomTable({room,items,editId,onEdit,onUpdate,onDelete,selectedItems,onToggleSelect,visibleCols}) {
   const [collapsed,setCollapsed]=useState(false);
   const isMobile = window.innerWidth < 768;
@@ -780,7 +770,8 @@ function PhotoUpload({item,onUpdate}) {
     </div>
   );
 }
-
 const root=ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App/>);
-</script></body></html>
+</script>
+
+</body></html>
