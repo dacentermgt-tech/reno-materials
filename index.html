@@ -3,18 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RenoMaterials — Renovation Order Manager</title>
-  <meta name="description" content="Manage renovation materials, generate quote emails, and share with your team." />
+  <title>RenoMaterials</title>
+  <meta name="description" content="Renovation materials order manager — synced across all devices." />
 
   <!-- React & ReactDOM -->
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
   <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 
-  <!-- Babel standalone (transpiles JSX in browser) -->
+  <!-- Babel (transpiles JSX in browser) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
 
   <!-- SheetJS for Excel import/export -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <!-- Firebase (compat SDK — works without bundler) -->
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 
   <style>
     *, *::before, *::after { box-sizing: border-box; }
@@ -26,33 +30,63 @@
 <body>
   <div id="root"></div>
 
+  <!-- Firebase init + storage shim -->
   <script>
 
-// ─── storage shim (localStorage for GitHub Pages) ────────────
+// ─── Firebase setup ───────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyA4ODk4lki5NiLgjQyfZN961rhkmcTPAuc",
+  authDomain: "reno-materials-order-form.firebaseapp.com",
+  projectId: "reno-materials-order-form",
+  storageBucket: "reno-materials-order-form.firebasestorage.app",
+  messagingSenderId: "182946152456",
+  appId: "1:182946152456:web:c513f3862d020642acd1bd"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const COLLECTION = "storage";
+
+// ─── storage shim — same API, backed by Firestore ─────────────
 window.storage = {
   get: async (key) => {
-    try { const v = localStorage.getItem(key); return v ? { key, value: v } : null; } catch { return null; }
+    try {
+      const doc = await db.collection(COLLECTION).doc(encodeKey(key)).get();
+      if (!doc.exists) return null;
+      return { key, value: doc.data().value };
+    } catch(e) { console.error("storage.get", e); return null; }
   },
   set: async (key, value) => {
-    try { localStorage.setItem(key, value); return { key, value }; } catch { return null; }
+    try {
+      await db.collection(COLLECTION).doc(encodeKey(key)).set({ key, value, updatedAt: Date.now() });
+      return { key, value };
+    } catch(e) { console.error("storage.set", e); return null; }
   },
   delete: async (key) => {
-    try { localStorage.removeItem(key); return { key, deleted: true }; } catch { return null; }
+    try {
+      await db.collection(COLLECTION).doc(encodeKey(key)).delete();
+      return { key, deleted: true };
+    } catch(e) { console.error("storage.delete", e); return null; }
   },
   list: async (prefix) => {
     try {
-      const keys = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (!prefix || k.startsWith(prefix)) keys.push(k);
-      }
+      let q = db.collection(COLLECTION);
+      if (prefix) q = q.where("key", ">=", prefix).where("key", "<", prefix + "\uf8ff");
+      const snap = await q.get();
+      const keys = snap.docs.map(d => d.data().key).filter(k => !prefix || k.startsWith(prefix));
       return { keys };
-    } catch { return { keys: [] }; }
+    } catch(e) { console.error("storage.list", e); return { keys: [] }; }
   }
 };
 
+function encodeKey(key) {
+  // Firestore doc IDs can't contain / so encode it
+  return key.replace(/\//g, "__SLASH__");
+}
+
   </script>
 
+  <!-- App -->
   <script type="text/babel">
 const { useState, useEffect, useRef, useCallback } = React;
 
