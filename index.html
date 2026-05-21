@@ -1,0 +1,1113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RenoMaterials — Renovation Order Manager</title>
+  <meta name="description" content="Manage renovation materials, generate quote emails, and share with your team." />
+
+  <!-- React & ReactDOM -->
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+
+  <!-- Babel standalone (transpiles JSX in browser) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+
+  <!-- SheetJS for Excel import/export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; padding: 0; background: #FAFAF8; }
+    input, select, button, textarea { font-family: inherit; }
+    @media print { .no-print { display: none !important; } }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script>
+
+// ─── storage shim (localStorage for GitHub Pages) ────────────
+window.storage = {
+  get: async (key) => {
+    try { const v = localStorage.getItem(key); return v ? { key, value: v } : null; } catch { return null; }
+  },
+  set: async (key, value) => {
+    try { localStorage.setItem(key, value); return { key, value }; } catch { return null; }
+  },
+  delete: async (key) => {
+    try { localStorage.removeItem(key); return { key, deleted: true }; } catch { return null; }
+  },
+  list: async (prefix) => {
+    try {
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!prefix || k.startsWith(prefix)) keys.push(k);
+      }
+      return { keys };
+    } catch { return { keys: [] }; }
+  }
+};
+
+  </script>
+
+  <script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+
+// ─── constants ───────────────────────────────────────────────
+const UNITS = ["sq ft","lin ft","cu ft","each","in","ft","yd","sq yd","lb","ton","gal","bag","box","sheet","roll","pallet"];
+
+const emptyItem = {
+  id: null, room: "", material: "", description: "", vendor: "", website: "",
+  qty: "", unit: "sq ft", width: "", height: "", depth: "", notes: ""
+};
+
+const emptyProject = (name = "", company = "") => ({
+  id: Date.now().toString(),
+  name, company,
+  contacts: [],           // [{name, email, type:"vendor"|"designer"}]
+  items: [],
+  createdAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+});
+
+// ─── email generator ─────────────────────────────────────────
+function buildEmail(project, recipientIds) {
+  const recipients = project.contacts.filter(c => recipientIds.includes(c.id));
+  if (!recipients.length || !project.items.length) return "";
+
+  const toLine = recipients.map(c => `${c.name} <${c.email}>`).join("; ");
+  const rows = project.items.map((it, i) => {
+    const dims = [it.width && `W:${it.width}`, it.height && `H:${it.height}`, it.depth && `D:${it.depth}`].filter(Boolean).join(" × ");
+    return [
+      `${i + 1}. ${it.material}`,
+      it.room       && `   Room: ${it.room}`,
+      it.description && `   Description: ${it.description}`,
+      (it.qty || it.unit) && `   Quantity: ${it.qty} ${it.unit}`,
+      dims           && `   Dimensions: ${dims}`,
+      it.notes       && `   Notes: ${it.notes}`,
+    ].filter(Boolean).join("\n");
+  }).join("\n\n");
+
+  return `To: ${toLine}
+Subject: Quote Request – ${project.name}
+
+Dear ${recipients.map(c => c.name).join(" & ")},
+
+I hope you're well. Please find below a quote request for the following materials needed for ${project.name}. Could you kindly provide pricing, availability, and lead times at your earliest convenience?
+
+────────────────────────────────────────────────────
+
+${rows}
+
+────────────────────────────────────────────────────
+
+Please don't hesitate to reach out if you need any clarification.
+
+Kind regards,
+${project.company || "[Your Company]"}`;
+}
+
+// ─── Excel parser ─────────────────────────────────────────────
+// Column field mapping — exact match first, then partial
+const COL_MAP = {
+  component:   ["item component","component"],
+  room:        ["room description","room","location","area","space"],
+  // salesCode intentionally skipped
+  description: ["item description","item desc","description","desc"],
+  vendor:      ["vendor id","vendor","supplier id","supplier"],
+  material:    ["client description","client desc","material","product","notes","note"],
+  qty:         ["qty","quantity","amount","count"],
+  unit:        ["unit","uom","measure"],
+  width:       ["width","wide"],
+  height:      ["height","high"],
+  depth:       ["depth","deep"],
+};
+
+function detectCol(header) {
+  const h = header.toLowerCase().trim();
+  for (const [field, aliases] of Object.entries(COL_MAP)) {
+    if (aliases.some(a => h === a)) return field;           // exact
+  }
+  for (const [field, aliases] of Object.entries(COL_MAP)) {
+    if (aliases.some(a => h.startsWith(a))) return field;   // starts with
+  }
+  for (const [field, aliases] of Object.entries(COL_MAP)) {
+    if (aliases.some(a => a.length >= 4 && h.includes(a))) return field; // contains (4+ chars only)
+  }
+  return null;
+}
+
+function isHeaderRow(row) {
+  // Detect repeated header rows by checking if first non-empty cell matches known header values
+  const first = String(row[0] || "").toLowerCase().trim();
+  return first === "item component" || first === "item description" || first === "component";
+}
+
+function parseExcel(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+        if (rows.length < 2) { resolve({ items: [], warnings: ["Sheet looks empty"] }); return; }
+
+        // Find first header row
+        let hi = 0;
+        for (let i = 0; i < Math.min(6, rows.length); i++) {
+          if (rows[i].filter(Boolean).length >= 2) { hi = i; break; }
+        }
+        const headers = rows[hi].map(h => String(h));
+        const colMap = {};
+        headers.forEach((h, idx) => { const f = detectCol(h); if (f && !(f in colMap)) colMap[f] = idx; });
+
+        const items = []; let skipped = 0;
+        for (let r = hi + 1; r < rows.length; r++) {
+          const row = rows[r];
+          if (row.every(c => !c)) continue;
+          if (isHeaderRow(row)) continue; // skip repeated header rows
+
+          const get = (f) => colMap[f] !== undefined ? String(row[colMap[f]] || "").trim() : "";
+
+          // Item Description is the main title
+          const description = get("description");
+          // Client Description goes into material field  
+          const material = get("material");
+          // Skip rows where both are empty
+          if (!description && !material) { skipped++; continue; }
+
+          const qty = parseFloat(get("qty").replace(/[^0-9.]/g, "")) || "";
+          const unitRaw = get("unit");
+
+          items.push({
+            id: `imp-${r}`,
+            component: get("component"),
+            room:       get("room"),
+            // "material" field in app = Item Description (the bold title)
+            material:   description || material,
+            // "description" field in app = Client Description (the spec detail)
+            description: description ? material : "",
+            vendor:     get("vendor"),
+            qty:        String(qty),
+            unit:       UNITS.includes(unitRaw) ? unitRaw : (unitRaw || "each"),
+            width:      get("width"),
+            height:     get("height"),
+            depth:      get("depth"),
+            notes:      get("notes"),
+          });
+        }
+        const warnings = skipped ? [`${skipped} row(s) skipped — no item data`] : [];
+        resolve({ items, warnings });
+      } catch (err) { reject(err); }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ─── copy helper ─────────────────────────────────────────────
+function copyToClipboard(text) {
+  if (navigator.clipboard?.writeText) {
+    navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+  } else {
+    fallbackCopy(text);
+  }
+}
+function fallbackCopy(text) {
+  const el = document.createElement("textarea");
+  el.value = text;
+  el.style.cssText = "position:fixed;top:0;left:0;opacity:0";
+  document.body.appendChild(el);
+  el.focus(); el.select();
+  try { document.execCommand("copy"); } catch {}
+  document.body.removeChild(el);
+}
+
+// ─── root ────────────────────────────────────────────────────
+function App() {
+  const [projects, setProjects]       = useState([]);
+  const [activeId, setActiveId]       = useState(null);
+  const [screen, setScreen]           = useState("home"); // home | project | email | vendors
+  const [vendors, setVendors]         = useState([]);
+  const [showVendorForm, setShowVendorForm] = useState(false);
+  const [vendorForm, setVendorForm]   = useState({ name: "", email: "", phone: "", type: "vendor" });
+  const [loading, setLoading]         = useState(true);
+  const [saving, setSaving]           = useState(false);
+  const [showNewProj, setShowNewProj] = useState(false);
+  const [newName, setNewName]         = useState("");
+  const [newCompany, setNewCompany]   = useState("");
+  const [importState, setImportState] = useState(null);
+  const [importing, setImporting]     = useState(false);
+  const fileRef = useRef();
+
+  // item form
+  const [itemForm, setItemForm]   = useState(emptyItem);
+  const [editItemId, setEditItemId] = useState(null);
+  const [itemErrors, setItemErrors] = useState({});
+
+  // contact form
+  const [showContactForm, setShowContactForm] = useState(false);
+  const [contactForm, setContactForm]         = useState({ name: "", email: "", type: "vendor" });
+
+  // email compose
+  const [selectedContacts, setSelectedContacts] = useState([]);
+  const [selectedItems, setSelectedItems]         = useState([]);
+  const [copied, setCopied]                       = useState(false);
+  const [printView, setPrintView]     = useState(false);
+
+  const active = projects.find(p => p.id === activeId);
+
+  // ── storage ──
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await window.storage.list("proj:");
+        if (res?.keys.length) {
+          const loaded = [];
+          for (const k of res.keys) { try { const r = await window.storage.get(k); if (r) loaded.push(JSON.parse(r.value)); } catch {} }
+          loaded.sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+          setProjects(loaded);
+        }
+      } catch {}
+      try {
+        const vres = await window.storage.get("global:vendors");
+        if (vres) setVendors(JSON.parse(vres.value));
+      } catch {}
+      setLoading(false);
+    })();
+  }, []);
+
+  const persistVendors = async (list) => {
+    try { await window.storage.set("global:vendors", JSON.stringify(list)); } catch {}
+  };
+
+  const addVendor = () => {
+    if (!vendorForm.name.trim() || !vendorForm.email.trim()) return;
+    const v = { ...vendorForm, id: `v-${Date.now()}` };
+    const next = [...vendors, v];
+    setVendors(next);
+    persistVendors(next);
+    setVendorForm({ name: "", email: "", phone: "", type: "vendor" });
+    setShowVendorForm(false);
+  };
+
+  const deleteVendor = (id) => {
+    const next = vendors.filter(v => v.id !== id);
+    setVendors(next);
+    persistVendors(next);
+  };
+
+  const addVendorToProject = (v) => {
+    if (active?.contacts.some(c => c.email === v.email)) return;
+    updateActive(p => ({ ...p, contacts: [...p.contacts, { ...v, id: `c-${Date.now()}` }] }));
+  };
+
+  const persist = async (proj) => {
+    setSaving(true);
+    try { await window.storage.set(`proj:${proj.id}`, JSON.stringify(proj)); } catch {}
+    setSaving(false);
+  };
+
+  const updateActive = (fn) => {
+    setProjects(prev => prev.map(p => {
+      if (p.id !== activeId) return p;
+      const next = { ...fn(p), updatedAt: new Date().toISOString() };
+      persist(next);
+      return next;
+    }));
+  };
+
+  // ── project CRUD ──
+  const createProject = (prefill = []) => {
+    if (!newName.trim()) return;
+    const proj = { ...emptyProject(newName.trim(), newCompany.trim()), items: prefill };
+    setProjects(p => [proj, ...p]);
+    persist(proj);
+    setActiveId(proj.id);
+    setScreen("project");
+    setShowNewProj(false);
+    setImportState(null);
+    setNewName(""); setNewCompany("");
+  };
+
+  const deleteProject = async (id) => {
+    try { await window.storage.delete(`proj:${id}`); } catch {}
+    setProjects(p => p.filter(x => x.id !== id));
+    if (activeId === id) { setActiveId(null); setScreen("home"); }
+  };
+
+  // ── item CRUD ──
+  const validateItem = () => {
+    const e = {};
+    if (!itemForm.material.trim()) e.material = "Required";
+    return e;
+  };
+  const saveItem = () => {
+    const e = validateItem();
+    if (Object.keys(e).length) { setItemErrors(e); return; }
+    const item = { ...itemForm, id: editItemId || `item-${Date.now()}` };
+    updateActive(p => ({ ...p, items: editItemId ? p.items.map(x => x.id === editItemId ? item : x) : [...p.items, item] }));
+    setItemForm(emptyItem); setEditItemId(null); setItemErrors({});
+  };
+  const deleteItem = (id) => updateActive(p => ({ ...p, items: p.items.filter(x => x.id !== id) }));
+  const startEdit = (item) => { setItemForm({ ...item }); setEditItemId(item.id); };
+
+  // ── contacts ──
+  const addContact = () => {
+    if (!contactForm.name.trim() || !contactForm.email.trim()) return;
+    const c = { ...contactForm, id: `c-${Date.now()}` };
+    updateActive(p => ({ ...p, contacts: [...p.contacts, c] }));
+    // Auto-save to global vendor directory if not already there
+    setVendors(prev => {
+      if (prev.some(v => v.email === contactForm.email)) return prev;
+      const next = [...prev, { ...contactForm, id: `v-${Date.now()}` }];
+      persistVendors(next);
+      return next;
+    });
+    setContactForm({ name: "", email: "", type: "vendor" });
+    setShowContactForm(false);
+  };
+  const removeContact = (id) => updateActive(p => ({ ...p, contacts: p.contacts.filter(c => c.id !== id) }));
+
+  // ── excel ──
+  const handleFile = async (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    setImporting(true);
+    try { setImportState({ ...(await parseExcel(file)), fileName: file.name }); }
+    catch (err) { setImportState({ items: [], warnings: ["Error: " + err.message], fileName: file.name }); }
+    setImporting(false); e.target.value = "";
+  };
+  const applyImport = () => {
+    if (!importState?.items.length) return;
+    updateActive(p => ({ ...p, items: [...p.items, ...importState.items] }));
+    setImportState(null);
+  };
+
+  // ── email ──
+  const emailText = active ? buildEmail({ ...active, items: active.items.filter(it => selectedItems.includes(it.id)) }, selectedContacts) : "";
+  const openOutlook = () => {
+    if (!active || !selectedContacts.length) return;
+    const recipients = active.contacts.filter(c => selectedContacts.includes(c.id));
+    const to = recipients.map(c => c.email).join(";");
+    const subject = encodeURIComponent(`Quote Request – ${active.name}`);
+    const body = encodeURIComponent(emailText);
+    window.location.href = `mailto:${to}?subject=${subject}&body=${body}`;
+  };
+  const handleCopy = () => { copyToClipboard(emailText); setCopied(true); setTimeout(() => setCopied(false), 2200); };
+  const toggleContact = (id) => setSelectedContacts(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+  const toggleItem = (id) => setSelectedItems(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
+  const toggleAllItems = () => {
+    if (!active) return;
+    setSelectedItems(s => s.length === active.items.length ? [] : active.items.map(it => it.id));
+  };
+
+  // ── export ──
+  const exportToExcel = useCallback(() => {
+    if (!active) return;
+    const rows = active.items.map((it, i) => ({
+      "#":                i + 1,
+      "Item Component":   it.component || "",
+      "Room":             it.room || "",
+      "Item Description": it.material || "",
+      "Material":         it.description || "",
+      "Vendor":           it.vendor || "",
+      "Qty":              it.qty || "",
+      "Unit":             it.unit || "",
+      "Width":            it.width || "",
+      "Height":           it.height || "",
+      "Depth":            it.depth || "",
+      "Notes":            it.notes || "",
+      "Website":          it.website || "",
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    // Column widths
+    ws["!cols"] = [
+      {wch:4},{wch:14},{wch:18},{wch:32},{wch:20},{wch:18},
+      {wch:6},{wch:8},{wch:8},{wch:8},{wch:8},{wch:28},{wch:32}
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Materials");
+    XLSX.writeFile(wb, `${active.name.replace(/[^a-z0-9]/gi,"_")}_materials.xlsx`);
+  }, [active]);
+
+  const printProject = useCallback(() => { setPrintView(true); }, [active]);
+  const fmtDate = (iso) => new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+
+  // ── loading ──
+  if (loading) return (
+    <div style={{ minHeight: "100vh", background: "#FAFAF8", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <p style={{ fontFamily: "Georgia, serif", color: "#999", fontSize: 15 }}>Loading…</p>
+    </div>
+  );
+
+  // ════════════════════════════════════════════════════════════
+  // HOME
+  // ════════════════════════════════════════════════════════════
+  if (screen === "home") return (
+    <div style={shell}>
+      <header style={topbar}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+          <span style={logo}>Reno</span><span style={logoSub}>Materials</span>
+        </div>
+        {saving && <span style={savingDot}>saving…</span>}
+      </header>
+
+      <main style={page}>
+        {/* New project CTA */}
+        {!showNewProj ? (
+          <button onClick={() => setShowNewProj(true)} style={newProjBtn}>
+            <span style={{ fontSize: 22, lineHeight: 1 }}>+</span>
+            <span>New Project</span>
+          </button>
+        ) : (
+          <div style={card}>
+            <p style={cardTitle}>New Project</p>
+            <Field label="Project Name *" error={!newName.trim() ? "" : ""}>
+              <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="e.g. Maple St Kitchen Reno" style={inp} />
+            </Field>
+            <Field label="Your Company">
+              <input value={newCompany} onChange={e => setNewCompany(e.target.value)} placeholder="e.g. Smith Renovations" style={inp} />
+            </Field>
+
+            {/* Excel prefill */}
+            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleFile} />
+            <div style={{ marginTop: 12, background: "#F5F4F0", borderRadius: 10, padding: "12px 14px" }}>
+              <p style={{ margin: "0 0 8px", fontSize: 12, color: "#888" }}>📊 Optional — import materials from Excel or CSV</p>
+              {!importState
+                ? <button onClick={() => fileRef.current.click()} style={ghostBtn} disabled={importing}>{importing ? "Reading…" : "Upload file"}</button>
+                : <ImportPreview state={importState} onClear={() => setImportState(null)} />}
+            </div>
+
+            <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+              <button onClick={() => createProject(importState?.items || [])} style={primaryBtn} disabled={!newName.trim()}>
+                {importState?.items?.length ? `Create with ${importState.items.length} items` : "Create Project"}
+              </button>
+              <button onClick={() => { setShowNewProj(false); setImportState(null); setNewName(""); setNewCompany(""); }} style={ghostBtn}>Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {/* Project list */}
+        {projects.length > 0 && (
+          <>
+            <p style={sectionLabel}>Your Projects</p>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {projects.map(p => (
+                <div key={p.id} onClick={() => { setActiveId(p.id); setScreen("project"); setSelectedContacts([]); }}
+                  style={projRow}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <p style={{ margin: 0, fontWeight: 700, fontSize: 15, color: "#1a1a1a", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</p>
+                    <p style={{ margin: "2px 0 0", fontSize: 12, color: "#999" }}>
+                      {p.items.length} item{p.items.length !== 1 ? "s" : ""} · {p.contacts.length} contact{p.contacts.length !== 1 ? "s" : ""} · {fmtDate(p.updatedAt)}
+                    </p>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <span style={{ color: "#ccc", fontSize: 20 }}>›</span>
+                    <button onClick={e => { e.stopPropagation(); deleteProject(p.id); }}
+                      style={{ background: "none", border: "none", cursor: "pointer", color: "#ddd", fontSize: 16, padding: "4px 6px" }}>✕</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {projects.length === 0 && !showNewProj && (
+          <div style={{ textAlign: "center", padding: "48px 0", color: "#bbb" }}>
+            <div style={{ fontSize: 40, marginBottom: 10 }}>🏠</div>
+            <p style={{ fontSize: 14 }}>No projects yet — create your first one above.</p>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+
+  // ════════════════════════════════════════════════════════════
+  // VENDORS DIRECTORY
+  // ════════════════════════════════════════════════════════════
+  if (screen === "vendors") return (
+    <div style={shell}>
+      <header style={topbar}>
+        <button onClick={() => setScreen("home")} style={backBtn}>← Back</button>
+        <span style={{ fontFamily: "Georgia,serif", fontWeight: 700, fontSize: 15, color: "#1a1a1a" }}>Vendor Directory</span>
+        {saving && <span style={savingDot}>saving…</span>}
+      </header>
+      <main style={page}>
+        <div style={card}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <p style={{ ...cardTitle, margin: 0 }}>Saved Vendors & Contacts</p>
+            <button onClick={() => setShowVendorForm(v => !v)} style={{ ...ghostBtn, padding: "5px 12px", fontSize: 12 }}>
+              {showVendorForm ? "Cancel" : "+ Add Vendor"}
+            </button>
+          </div>
+
+          {showVendorForm && (
+            <div style={{ background: "#F5F4F0", borderRadius: 10, padding: "14px", marginBottom: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+                <Field label="Name *">
+                  <input value={vendorForm.name} onChange={e => setVendorForm(v => ({ ...v, name: e.target.value }))} placeholder="e.g. Tiles Direct" style={inp} />
+                </Field>
+                <Field label="Email *">
+                  <input value={vendorForm.email} onChange={e => setVendorForm(v => ({ ...v, email: e.target.value }))} placeholder="orders@tilesdirect.com" type="email" style={inp} />
+                </Field>
+                <Field label="Phone">
+                  <input value={vendorForm.phone} onChange={e => setVendorForm(v => ({ ...v, phone: e.target.value }))} placeholder="e.g. 201-555-0100" style={inp} />
+                </Field>
+                <Field label="Type">
+                  <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                    {["vendor", "designer"].map(t => (
+                      <button key={t} onClick={() => setVendorForm(v => ({ ...v, type: t }))}
+                        style={{ flex: 1, padding: "7px", borderRadius: 8, border: `1.5px solid ${vendorForm.type === t ? "#B5763A" : "#ddd"}`, background: vendorForm.type === t ? "#FEF3E2" : "#fff", color: vendorForm.type === t ? "#B5763A" : "#888", fontWeight: 600, fontSize: 12, cursor: "pointer" }}>
+                        {t.charAt(0).toUpperCase() + t.slice(1)}
+                      </button>
+                    ))}
+                  </div>
+                </Field>
+              </div>
+              <button onClick={addVendor} style={primaryBtn} disabled={!vendorForm.name.trim() || !vendorForm.email.trim()}>Save Vendor</button>
+            </div>
+          )}
+
+          {vendors.length === 0 && !showVendorForm && (
+            <div style={{ textAlign: "center", padding: "32px 0", color: "#ccc" }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>🏢</div>
+              <p style={{ fontSize: 13, margin: 0 }}>No vendors saved yet. Add your first one above.</p>
+            </div>
+          )}
+
+          {vendors.map(v => (
+            <div key={v.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px solid #F0EFEB" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "#1a1a1a" }}>{v.name}</p>
+                <p style={{ margin: "2px 0 0", fontSize: 12, color: "#999" }}>{v.email}{v.phone ? ` · ${v.phone}` : ""}</p>
+              </div>
+              <span style={{ fontSize: 11, background: v.type === "vendor" ? "#FEF3E2" : "#E8F4FD", color: v.type === "vendor" ? "#B5763A" : "#2980B9", borderRadius: 20, padding: "2px 8px", flexShrink: 0 }}>{v.type}</span>
+              <button onClick={() => deleteVendor(v.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ddd", fontSize: 15, flexShrink: 0 }}>✕</button>
+            </div>
+          ))}
+        </div>
+        <p style={{ ...sectionLabel, marginTop: 4 }}>Vendors are available to add to any project from the project contacts screen.</p>
+      </main>
+    </div>
+  );
+
+  // ════════════════════════════════════════════════════════════
+  // EMAIL COMPOSE
+  // ════════════════════════════════════════════════════════════
+  if (screen === "email") return (
+    <div style={shell}>
+      <header style={topbar}>
+        <button onClick={() => setScreen("project")} style={backBtn}>← Back</button>
+        <span style={{ fontFamily: "Georgia,serif", fontWeight: 700, fontSize: 15, color: "#1a1a1a" }}>Send Quote Request</span>
+        {saving && <span style={savingDot}>saving…</span>}
+      </header>
+
+      <main style={page}>
+        {/* Recipient picker */}
+        <div style={card}>
+          <p style={cardTitle}>Choose Recipients</p>
+          {active?.contacts.length === 0 && (
+            <p style={{ fontSize: 13, color: "#aaa", margin: "0 0 10px" }}>No contacts added yet — go back and add some.</p>
+          )}
+          {active?.contacts.map(c => (
+            <label key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 0", borderBottom: "1px solid #F0EFEB", cursor: "pointer" }}>
+              <input type="checkbox" checked={selectedContacts.includes(c.id)} onChange={() => toggleContact(c.id)}
+                style={{ width: 16, height: 16, accentColor: "#B5763A" }} />
+              <div>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#1a1a1a" }}>{c.name}</span>
+                <span style={{ fontSize: 12, color: "#999", marginLeft: 8 }}>{c.email}</span>
+              </div>
+              <span style={{ marginLeft: "auto", fontSize: 11, background: c.type === "vendor" ? "#FEF3E2" : "#E8F4FD", color: c.type === "vendor" ? "#B5763A" : "#2980B9", borderRadius: 20, padding: "2px 8px" }}>
+                {c.type}
+              </span>
+            </label>
+          ))}
+        </div>
+
+        {/* Item picker */}
+        <div style={card}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <p style={{ ...cardTitle, margin: 0 }}>Select Items to Include</p>
+            <button onClick={toggleAllItems} style={{ fontSize: 12, color: "#B5763A", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>
+              {selectedItems.length === active?.items.length ? "Deselect All" : "Select All"}
+            </button>
+          </div>
+          {active?.items.length === 0 && <p style={{ fontSize: 13, color: "#bbb", margin: 0 }}>No items in this project yet.</p>}
+          {active?.items.map((item, i) => {
+            const dims = [item.width && `W ${item.width}`, item.height && `H ${item.height}`, item.depth && `D ${item.depth}`].filter(Boolean).join(" × ");
+            return (
+              <label key={item.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "9px 0", borderBottom: "1px solid #F0EFEB", cursor: "pointer" }}>
+                <input type="checkbox" checked={selectedItems.includes(item.id)} onChange={() => toggleItem(item.id)}
+                  style={{ width: 16, height: 16, accentColor: "#B5763A", marginTop: 2, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ margin: 0, fontWeight: 600, fontSize: 13, color: "#1a1a1a" }}>{item.material}</p>
+                  {item.description && <p style={{ margin: "1px 0 0", fontSize: 12, color: "#888" }}>{item.description}</p>}
+                  <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginTop: 3 }}>
+                    {item.room && <span style={{ fontSize: 11, background: "#ECEAE4", borderRadius: 4, padding: "1px 6px", color: "#555" }}>{item.room}</span>}
+                    {item.vendor && <span style={{ fontSize: 11, background: "#FEF3E2", borderRadius: 4, padding: "1px 6px", color: "#B5763A" }}>{item.vendor}</span>}
+                    {item.qty && <span style={{ fontSize: 11, background: "#ECEAE4", borderRadius: 4, padding: "1px 6px", color: "#555" }}>{item.qty} {item.unit}</span>}
+                    {dims && <span style={{ fontSize: 11, background: "#ECEAE4", borderRadius: 4, padding: "1px 6px", color: "#555" }}>{dims}</span>}
+                  </div>
+                </div>
+              </label>
+            );
+          })}
+          {selectedItems.length > 0 && <p style={{ margin: "8px 0 0", fontSize: 12, color: "#999" }}>{selectedItems.length} of {active?.items.length} item{active?.items.length !== 1 ? "s" : ""} selected</p>}
+        </div>
+
+        {/* Email preview */}
+        {selectedContacts.length > 0 && selectedItems.length > 0 && (
+          <div style={card}>
+            <p style={cardTitle}>Email Preview</p>
+            <pre style={{ fontFamily: "'Courier New', monospace", fontSize: 12, lineHeight: 1.7, color: "#444", whiteSpace: "pre-wrap", wordBreak: "break-word", background: "#FAFAF8", borderRadius: 8, padding: "14px", border: "1px solid #ECEAE4", maxHeight: 340, overflowY: "auto", margin: 0 }}>
+              {emailText}
+            </pre>
+            <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+              <button onClick={openOutlook} style={primaryBtn}>
+                📧 Open in Outlook
+              </button>
+              <button onClick={handleCopy} style={{ ...ghostBtn, background: copied ? "#E8F5E9" : undefined, color: copied ? "#2E7D32" : undefined }}>
+                {copied ? "✓ Copied!" : "Copy text"}
+              </button>
+            </div>
+            <p style={{ margin: "10px 0 0", fontSize: 11, color: "#bbb" }}>
+              "Open in Outlook" launches your Outlook app with the email prefilled. If it doesn't work, use "Copy text" and paste manually.
+            </p>
+          </div>
+        )}
+      </main>
+    </div>
+  );
+
+  // ════════════════════════════════════════════════════════════
+  // PRINT VIEW
+  // ════════════════════════════════════════════════════════════
+  if (printView && active) return (
+    <div style={{ fontFamily: "Arial, sans-serif", background: "#fff", minHeight: "100vh", color: "#1a1a1a" }}>
+      {/* Toolbar — hidden when printing */}
+      <div style={{ background: "#f5f4f0", borderBottom: "1px solid #ddd", padding: "10px 16px", display: "flex", alignItems: "center", gap: 10, position: "sticky", top: 0 }} className="no-print">
+        <button onClick={() => setPrintView(false)} style={{ ...backBtn, fontFamily: "Arial,sans-serif" }}>← Back</button>
+        <span style={{ fontWeight: 700, fontSize: 14, flex: 1 }}>{active.name} — Print View</span>
+        <button onClick={() => {
+          const tableRows = active.items.map((it, i) => {
+            const dims = [it.width, it.height, it.depth].filter(Boolean).join(" × ");
+            return `<tr style="background:${i%2===0?"#fff":"#fafaf8"}">
+              <td style="padding:8px;border-bottom:1px solid #eee">${i+1}</td>
+              <td style="padding:8px;border-bottom:1px solid #eee;font-weight:600;color:#b5763a">${it.component||""}</td>
+              <td style="padding:8px;border-bottom:1px solid #eee">${it.room||""}</td>
+              <td style="padding:8px;border-bottom:1px solid #eee"><span style="font-weight:600">${it.material||""}</span>${it.description?`<div style="color:#888;font-size:11px;margin-top:2px">${it.description}</div>`:""}</td>
+              <td style="padding:8px;border-bottom:1px solid #eee">${it.vendor||""}</td>
+              <td style="padding:8px;border-bottom:1px solid #eee;white-space:nowrap">${it.qty?`${it.qty} ${it.unit}`:""}</td>
+              <td style="padding:8px;border-bottom:1px solid #eee;white-space:nowrap;color:#666">${dims||""}</td>
+              <td style="padding:8px;border-bottom:1px solid #eee;color:#888;font-size:11px">${it.notes||""}</td>
+            </tr>`;
+          }).join("");
+          const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${active.name} — Materials</title>
+          <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:12px;padding:28px;color:#1a1a1a}h1{font-size:20px;font-weight:700;margin-bottom:4px}p.sub{color:#888;font-size:12px;margin-bottom:20px}table{width:100%;border-collapse:collapse}th{background:#f5f4f0;text-align:left;padding:7px 8px;font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:2px solid #ddd}@media print{.no-print{display:none!important}}</style>
+          </head><body>
+          <h1>📋 ${active.name}</h1>
+          <p class="sub">Materials list${active.company?" · "+active.company:""} · ${new Date().toLocaleDateString("en-US",{month:"long",day:"numeric",year:"numeric"})}</p>
+          <p class="no-print" style="margin-bottom:16px"><button onclick="window.print()" style="padding:8px 20px;background:#b5763a;color:#fff;border:none;border-radius:8px;font-size:13px;cursor:pointer;font-weight:bold">🖨️ Print / Save as PDF</button></p>
+          <table><thead><tr>${["#","Component","Room","Item Description","Vendor","Qty / Unit","W × H × D","Notes"].map(h=>`<th>${h}</th>`).join("")}</tr></thead><tbody>${tableRows}</tbody></table>
+          <p style="margin-top:24px;font-size:11px;color:#bbb">${active.items.length} item(s) · Generated ${new Date().toLocaleString()}</p>
+          </body></html>`;
+          const blob = new Blob([html], {type:"text/html"});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `${active.name.replace(/[^a-z0-9]/gi,"_")}_materials.html`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(()=>URL.revokeObjectURL(url),5000);
+        }} style={{ ...primaryBtn, fontFamily: "Arial,sans-serif" }}>⬇️ Download Print Sheet</button>
+      </div>
+
+      <div style={{ padding: "24px 20px", maxWidth: 900, margin: "0 auto" }}>
+        <h1 style={{ fontSize: 20, fontWeight: 700, marginBottom: 2 }}>📋 {active.name}</h1>
+        <p style={{ color: "#888", fontSize: 12, marginBottom: 20 }}>
+          Materials list{active.company ? " · " + active.company : ""} · {new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+        </p>
+
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+          <thead>
+            <tr style={{ background: "#f5f4f0" }}>
+              {["#","Component","Room","Item Description","Vendor","Qty / Unit","W × H × D","Notes"].map(h => (
+                <th key={h} style={{ textAlign: "left", padding: "7px 8px", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.5px", borderBottom: "2px solid #ddd", whiteSpace: "nowrap" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {active.items.map((it, i) => {
+              const dims = [it.width, it.height, it.depth].filter(Boolean).join(" × ");
+              return (
+                <tr key={it.id} style={{ background: i % 2 === 0 ? "#fff" : "#fafaf8" }}>
+                  <td style={td}>{i + 1}</td>
+                  <td style={td}><span style={{ fontWeight: 600, color: "#B5763A" }}>{it.component || ""}</span></td>
+                  <td style={td}>{it.room || ""}</td>
+                  <td style={td}>
+                    <span style={{ fontWeight: 600 }}>{it.material || ""}</span>
+                    {it.description && <div style={{ color: "#888", fontSize: 11, marginTop: 2 }}>{it.description}</div>}
+                  </td>
+                  <td style={td}>{it.vendor || ""}</td>
+                  <td style={{ ...td, whiteSpace: "nowrap" }}>{it.qty ? `${it.qty} ${it.unit}` : ""}</td>
+                  <td style={{ ...td, whiteSpace: "nowrap", color: "#666" }}>{dims || ""}</td>
+                  <td style={{ ...td, color: "#888", fontSize: 11 }}>{it.notes || ""}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+
+        <p style={{ marginTop: 24, fontSize: 11, color: "#bbb" }}>
+          {active.items.length} item(s) · Generated {new Date().toLocaleString()}
+        </p>
+      </div>
+
+      <style>{`@media print { .no-print { display: none !important; } body { margin: 0; } }`}</style>
+    </div>
+  );
+
+  // ════════════════════════════════════════════════════════════
+  // PROJECT DETAIL
+  // ════════════════════════════════════════════════════════════
+  return (
+    <div style={shell}>
+      <header style={topbar}>
+        <button onClick={() => { setScreen("home"); setEditItemId(null); setItemForm(emptyItem); setImportState(null); }} style={backBtn}>← Projects</button>
+        <div style={{ flex: 1, textAlign: "center", minWidth: 0, overflow: "hidden" }}>
+          <span style={{ fontFamily: "Georgia,serif", fontWeight: 700, fontSize: 14, color: "#1a1a1a", whiteSpace: "nowrap" }}>{active?.name}</span>
+        </div>
+        <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+          {saving
+            ? <span style={savingDot}>saving…</span>
+            : <>
+                <button onClick={exportToExcel} title="Export to Excel" style={{ ...ghostBtn, padding: "5px 9px", fontSize: 13 }}>📊</button>
+                <button onClick={printProject} title="Print / Save PDF" style={{ ...ghostBtn, padding: "5px 9px", fontSize: 13 }}>🖨️</button>
+              </>
+          }
+        </div>
+      </header>
+
+      <main style={page}>
+
+        {/* ── Contacts section ──────────────────── */}
+        <div style={card}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <p style={{ ...cardTitle, margin: 0 }}>Contacts</p>
+            <div style={{ display: "flex", gap: 6 }}>
+              {vendors.length > 0 && (
+                <button onClick={() => setShowVendorForm(v => !v)} style={{ ...ghostBtn, padding: "4px 10px", fontSize: 12, color: "#B5763A", borderColor: "#B5763A44" }}>
+                  📋 From Directory
+                </button>
+              )}
+              <button onClick={() => setShowContactForm(v => !v)} style={{ ...ghostBtn, padding: "4px 10px", fontSize: 12 }}>
+                {showContactForm ? "Cancel" : "+ New"}
+              </button>
+            </div>
+          </div>
+
+          {showVendorForm && vendors.length > 0 && (
+            <div style={{ background: "#FEF9F3", border: "1px solid #F0D5B0", borderRadius: 10, padding: "12px", marginBottom: 12 }}>
+              <p style={{ margin: "0 0 8px", fontSize: 12, color: "#B5763A", fontWeight: 600 }}>Add from Vendor Directory</p>
+              {vendors.map(v => {
+                const already = active?.contacts.some(c => c.email === v.email);
+                return (
+                  <div key={v.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0", borderBottom: "1px solid #F5E8D5" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "#1a1a1a" }}>{v.name}</span>
+                      <span style={{ fontSize: 12, color: "#999", marginLeft: 8 }}>{v.email}</span>
+                    </div>
+                    <button
+                      onClick={() => { addVendorToProject(v); }}
+                      disabled={already}
+                      style={{ padding: "4px 12px", borderRadius: 7, border: "none", cursor: already ? "default" : "pointer", background: already ? "#ECEAE4" : "#B5763A", color: already ? "#aaa" : "#fff", fontSize: 12, fontWeight: 600 }}>
+                      {already ? "Added" : "+ Add"}
+                    </button>
+                  </div>
+                );
+              })}
+              <button onClick={() => setShowVendorForm(false)} style={{ ...ghostBtn, marginTop: 10, padding: "5px 12px", fontSize: 12 }}>Done</button>
+            </div>
+          )}
+
+          {showContactForm && (
+            <div style={{ background: "#F5F4F0", borderRadius: 10, padding: "12px", marginBottom: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                <Field label="Name *"><input value={contactForm.name} onChange={e => setContactForm(c => ({ ...c, name: e.target.value }))} placeholder="Jane Smith" style={inp} /></Field>
+                <Field label="Email *"><input value={contactForm.email} onChange={e => setContactForm(c => ({ ...c, email: e.target.value }))} placeholder="jane@vendor.com" type="email" style={inp} /></Field>
+              </div>
+              <Field label="Type">
+                <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                  {["vendor", "designer"].map(t => (
+                    <button key={t} onClick={() => setContactForm(c => ({ ...c, type: t }))}
+                      style={{ flex: 1, padding: "7px", borderRadius: 8, border: `1.5px solid ${contactForm.type === t ? "#B5763A" : "#ddd"}`, background: contactForm.type === t ? "#FEF3E2" : "#fff", color: contactForm.type === t ? "#B5763A" : "#888", fontWeight: 600, fontSize: 13, cursor: "pointer" }}>
+                      {t.charAt(0).toUpperCase() + t.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </Field>
+              <button onClick={addContact} style={{ ...primaryBtn, marginTop: 4 }} disabled={!contactForm.name.trim() || !contactForm.email.trim()}>Add Contact</button>
+            </div>
+          )}
+
+          {active?.contacts.length === 0 && !showContactForm && (
+            <p style={{ fontSize: 13, color: "#bbb", margin: 0 }}>No contacts yet. Add vendors or your interior designer.</p>
+          )}
+          {active?.contacts.map(c => (
+            <div key={c.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 0", borderBottom: "1px solid #F0EFEB" }}>
+              <div style={{ flex: 1 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: "#1a1a1a" }}>{c.name}</span>
+                <span style={{ fontSize: 12, color: "#999", marginLeft: 8 }}>{c.email}</span>
+              </div>
+              <span style={{ fontSize: 11, background: c.type === "vendor" ? "#FEF3E2" : "#E8F4FD", color: c.type === "vendor" ? "#B5763A" : "#2980B9", borderRadius: 20, padding: "2px 8px" }}>{c.type}</span>
+              <button onClick={() => removeContact(c.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#ddd", fontSize: 15 }}>✕</button>
+            </div>
+          ))}
+
+          {active?.contacts.length > 0 && (
+            <button onClick={() => { setSelectedContacts(active.contacts.map(c => c.id)); setSelectedItems(active.items.map(it => it.id)); setScreen("email"); }}
+              style={{ ...primaryBtn, width: "100%", marginTop: 12, justifyContent: "center" }}>
+              ✉️ Compose Quote Email
+            </button>
+          )}
+        </div>
+
+        {/* ── Excel import ───────────────────────── */}
+        <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={handleFile} />
+        {!importState ? (
+          <button onClick={() => fileRef.current.click()} style={{ width: "100%", padding: "10px", borderRadius: 10, border: "1.5px dashed #D8D5CD", background: "transparent", color: "#aaa", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}>
+            {importing ? "Reading file…" : "📊 Import items from Excel / CSV"}
+          </button>
+        ) : (
+          <div style={{ ...card, border: "1.5px solid #B5E5C8" }}>
+            <ImportPreview state={importState} onClear={() => setImportState(null)} />
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <button onClick={applyImport} style={primaryBtn}>+ Add {importState.items.length} items</button>
+              <button onClick={() => setImportState(null)} style={ghostBtn}>Discard</button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Add item form (only shown when not editing inline) ── */}
+        {!editItemId && (
+          <div style={{ ...card, border: "1.5px solid #ECEAE4" }}>
+            <p style={cardTitle}>＋ Add Item</p>
+            <ItemForm form={itemForm} setForm={setItemForm} errors={itemErrors} onSave={saveItem} onCancel={null} inp={inp} />
+          </div>
+        )}
+
+        {/* ── Items list ─────────────────────────── */}
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <p style={sectionLabel}>Items ({active?.items.length || 0})</p>
+          </div>
+
+          {!active?.items.length ? (
+            <div style={{ textAlign: "center", padding: "32px 0", color: "#ccc" }}>
+              <div style={{ fontSize: 32, marginBottom: 8 }}>📋</div>
+              <p style={{ fontSize: 13, margin: 0 }}>No items yet. Import from Excel or add one above.</p>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {active.items.map((item, i) => {
+                const isEditing = editItemId === item.id;
+                const dims = [item.width && `W ${item.width}`, item.height && `H ${item.height}`, item.depth && `D ${item.depth}`].filter(Boolean).join(" × ");
+                return (
+                  <div key={item.id} style={{ ...card, margin: 0, border: isEditing ? "1.5px solid #B5763A" : "1.5px solid #ECEAE4", padding: "12px 14px" }}>
+                    {isEditing ? (
+                      <div>
+                        <p style={{ ...cardTitle, fontSize: 13, margin: "0 0 10px", color: "#B5763A" }}>✏️ Editing Item {i + 1}</p>
+                        <ItemForm form={itemForm} setForm={setItemForm} errors={itemErrors} onSave={saveItem} onCancel={() => { setEditItemId(null); setItemForm(emptyItem); setItemErrors({}); }} inp={inp} />
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                        <div style={{ width: 28, height: 28, borderRadius: 6, background: "#F5F4F0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#B5763A", flexShrink: 0 }}>{i + 1}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ margin: 0, fontWeight: 700, fontSize: 14, color: "#1a1a1a" }}>{item.material}</p>
+                          {item.description && <p style={{ margin: "3px 0 0", fontSize: 13, color: "#888" }}>Material: {item.description}</p>}
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 5 }}>
+                            {item.component && <Chip muted>{item.component}</Chip>}
+                            {item.room && <Chip>{item.room}</Chip>}
+                            {item.vendor && <Chip accent>{item.vendor}</Chip>}
+                            {(item.qty || item.unit) && <Chip accent>{item.qty} {item.unit}</Chip>}
+                            {dims && <Chip>{dims}</Chip>}
+                            {item.notes && <Chip muted>{item.notes}</Chip>}
+                          </div>
+                          {item.website && (
+                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
+                              <a href={item.website.startsWith("http") ? item.website : "https://" + item.website}
+                                target="_blank" rel="noreferrer"
+                                style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: "#2980B9", textDecoration: "none", fontWeight: 500, background: "#EBF5FB", borderRadius: 6, padding: "3px 9px" }}
+                                onClick={e => e.stopPropagation()}>
+                                🔗 Open Link
+                              </a>
+                              <CopyButton text={item.website.startsWith("http") ? item.website : "https://" + item.website} />
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                          <button onClick={() => startEdit(item)} style={iconBtnStyle}>✏️</button>
+                          <button onClick={() => deleteItem(item.id)} style={iconBtnStyle}>🗑️</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
+
+// ─── small components ─────────────────────────────────────────
+function ItemForm({ form, setForm, errors, onSave, onCancel, inp }) {
+  return (
+    <div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <Field label="Item Description *" error={errors.material} style={{ gridColumn: "1/-1" }}>
+          <input value={form.material} onChange={e => setForm(p => ({ ...p, material: e.target.value }))}
+            placeholder="e.g. 5&quot; Engineered Hardwood Flooring, Natural Oak"
+            style={{ ...inp, borderColor: errors.material ? "#E57373" : undefined }} />
+        </Field>
+        <Field label="Item Component">
+          <input value={form.component || ""} onChange={e => setForm(p => ({ ...p, component: e.target.value }))} placeholder="e.g. AC-01" style={inp} />
+        </Field>
+        <Field label="Material">
+          <input value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="e.g. Hardwood" style={inp} />
+        </Field>
+        <Field label="Room">
+          <input value={form.room} onChange={e => setForm(p => ({ ...p, room: e.target.value }))} placeholder="e.g. Master Bedroom" style={inp} />
+        </Field>
+        <Field label="Vendor / Supplier">
+          <input value={form.vendor || ""} onChange={e => setForm(p => ({ ...p, vendor: e.target.value }))} placeholder="e.g. Tiles Direct, V-0042" style={inp} />
+        </Field>
+        <div style={{ gridColumn: "1/-1", background: "#F5F4F0", borderRadius: 10, padding: "10px 12px" }}>
+          <p style={{ margin: "0 0 8px", fontSize: 11, color: "#999", textTransform: "uppercase", letterSpacing: 0.8 }}>Measurements</p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr", gap: 8 }}>
+            <Field label="Qty">
+              <input value={form.qty} onChange={e => setForm(p => ({ ...p, qty: e.target.value }))} placeholder="0" type="number" min="0" style={inp} />
+            </Field>
+            <Field label="Unit">
+              <select value={form.unit} onChange={e => setForm(p => ({ ...p, unit: e.target.value }))} style={{ ...inp, cursor: "pointer" }}>
+                {UNITS.map(u => <option key={u}>{u}</option>)}
+              </select>
+            </Field>
+            <Field label="Width">
+              <input value={form.width} onChange={e => setForm(p => ({ ...p, width: e.target.value }))} placeholder="e.g. 3.2m" style={inp} />
+            </Field>
+            <Field label="Height">
+              <input value={form.height} onChange={e => setForm(p => ({ ...p, height: e.target.value }))} placeholder="e.g. 2.4m" style={inp} />
+            </Field>
+            <Field label="Depth">
+              <input value={form.depth} onChange={e => setForm(p => ({ ...p, depth: e.target.value }))} placeholder="e.g. 0.5m" style={inp} />
+            </Field>
+          </div>
+        </div>
+        <Field label="Notes" style={{ gridColumn: "1/-1" }}>
+          <input value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} placeholder="Finish, colour, grade, special instructions…" style={inp} />
+        </Field>
+        <Field label="Website / Product Link" style={{ gridColumn: "1/-1" }}>
+          <input value={form.website || ""} onChange={e => setForm(p => ({ ...p, website: e.target.value }))} placeholder="e.g. https://tilesdirect.com/product/123" style={inp} />
+        </Field>
+      </div>
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        <button onClick={onSave} style={{ padding: "9px 18px", borderRadius: 9, border: "none", cursor: "pointer", background: "#B5763A", color: "#fff", fontWeight: 700, fontSize: 13 }}>
+          {onCancel ? "Update Item" : "Add to List"}
+        </button>
+        {onCancel && <button onClick={onCancel} style={{ padding: "8px 16px", borderRadius: 9, border: "1.5px solid #D8D5CD", cursor: "pointer", background: "#fff", color: "#888", fontWeight: 600, fontSize: 13 }}>Cancel</button>}
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children, error, style }) {
+  return (
+    <div style={style}>
+      <label style={{ fontSize: 11, color: "#999", textTransform: "uppercase", letterSpacing: 0.7, display: "block", marginBottom: 4 }}>{label}</label>
+      {children}
+      {error && <span style={{ fontSize: 11, color: "#E57373" }}>{error}</span>}
+    </div>
+  );
+}
+
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+  const handle = (e) => {
+    e.stopPropagation();
+    copyToClipboard(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <button onClick={handle} style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 12, color: copied ? "#27AE60" : "#888", background: copied ? "#E8F5E9" : "#F5F4F0", border: "none", borderRadius: 6, padding: "3px 9px", cursor: "pointer", fontWeight: 500, transition: "all 0.15s" }}>
+      {copied ? "✓ Copied!" : "📋 Copy URL"}
+    </button>
+  );
+}
+
+function Chip({ children, accent, muted }) {
+  return (
+    <span style={{
+      fontSize: 11, borderRadius: 5, padding: "2px 7px",
+      background: accent ? "#FEF3E2" : muted ? "#F5F4F0" : "#ECEAE4",
+      color: accent ? "#B5763A" : muted ? "#aaa" : "#555"
+    }}>{children}</span>
+  );
+}
+
+function ImportPreview({ state, onClear }) {
+  return (
+    <div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+        <span style={{ fontSize: 12, color: "#27AE60", fontWeight: 600 }}>✓ {state.fileName}</span>
+        <button onClick={onClear} style={{ background: "none", border: "none", color: "#bbb", cursor: "pointer", fontSize: 13 }}>✕</button>
+      </div>
+      <p style={{ margin: "0 0 4px", fontSize: 13, color: "#444" }}>{state.items.length} item{state.items.length !== 1 ? "s" : ""} detected</p>
+      {state.warnings?.map((w, i) => <p key={i} style={{ margin: "2px 0", fontSize: 11, color: "#E67E22" }}>⚠ {w}</p>)}
+      <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 3, maxHeight: 90, overflowY: "auto" }}>
+        {state.items.slice(0, 4).map((it, i) => (
+          <div key={i} style={{ fontSize: 11, color: "#888", background: "#fff", borderRadius: 5, padding: "3px 8px" }}>
+            {it.material}{it.description ? ` — ${it.description}` : ""}{it.room ? ` · ${it.room}` : ""}{it.qty ? ` · ${it.qty} ${it.unit}` : ""}
+          </div>
+        ))}
+        {state.items.length > 4 && <div style={{ fontSize: 11, color: "#bbb", padding: "1px 8px" }}>+{state.items.length - 4} more…</div>}
+      </div>
+    </div>
+  );
+}
+
+// ─── styles ───────────────────────────────────────────────────
+const shell      = { fontFamily: "'DM Sans','Segoe UI',sans-serif", background: "#FAFAF8", minHeight: "100vh", color: "#1a1a1a" };
+const topbar     = { position: "sticky", top: 0, zIndex: 10, background: "#fff", borderBottom: "1px solid #ECEAE4", padding: "14px 18px", display: "flex", alignItems: "center", gap: 10 };
+const logo       = { fontFamily: "Georgia,serif", fontWeight: 700, fontSize: 20, color: "#B5763A", letterSpacing: "-0.5px" };
+const logoSub    = { fontFamily: "Georgia,serif", fontSize: 14, color: "#C8BFB0", letterSpacing: 1 };
+const savingDot  = { fontSize: 11, color: "#bbb", marginLeft: "auto" };
+const page       = { maxWidth: 680, margin: "0 auto", padding: "20px 16px 60px" };
+const card       = { background: "#fff", borderRadius: 14, border: "1.5px solid #ECEAE4", padding: "16px", marginBottom: 14 };
+const cardTitle  = { margin: "0 0 12px", fontFamily: "Georgia,serif", fontSize: 15, fontWeight: 700, color: "#1a1a1a" };
+const sectionLabel = { fontSize: 11, color: "#aaa", textTransform: "uppercase", letterSpacing: 1, margin: "0 0 8px" };
+const projRow    = { background: "#fff", borderRadius: 12, border: "1.5px solid #ECEAE4", padding: "14px 16px", display: "flex", alignItems: "center", gap: 12, cursor: "pointer" };
+const itemRow    = { background: "#fff", borderRadius: 12, border: "1.5px solid #ECEAE4", padding: "12px 14px", display: "flex", alignItems: "flex-start", gap: 10 };
+const backBtn    = { background: "none", border: "1px solid #E0DDD5", borderRadius: 8, padding: "5px 12px", color: "#888", cursor: "pointer", fontSize: 13 };
+const newProjBtn = { width: "100%", padding: "16px", borderRadius: 12, border: "2px dashed #D8C9B8", background: "transparent", color: "#B5763A", fontSize: 15, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, marginBottom: 20, fontFamily: "Georgia,serif" };
+const primaryBtn = { padding: "9px 18px", borderRadius: 9, border: "none", cursor: "pointer", background: "#B5763A", color: "#fff", fontWeight: 700, fontSize: 13, display: "inline-flex", alignItems: "center", gap: 6 };
+const ghostBtn   = { padding: "8px 16px", borderRadius: 9, border: "1.5px solid #D8D5CD", cursor: "pointer", background: "#fff", color: "#888", fontWeight: 600, fontSize: 13 };
+const inp        = { display: "block", width: "100%", background: "#FAFAF8", border: "1.5px solid #E0DDD5", borderRadius: 8, padding: "8px 10px", color: "#1a1a1a", fontSize: 13, outline: "none", boxSizing: "border-box" };
+const iconBtnStyle = { background: "transparent", border: "1px solid #ECEAE4", borderRadius: 7, padding: "5px 8px", cursor: "pointer", fontSize: 13 };
+const td = { padding: "8px", borderBottom: "1px solid #eee", verticalAlign: "top" };
+
+
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(<App />);
+  </script>
+</body>
+</html>
