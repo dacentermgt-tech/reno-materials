@@ -262,6 +262,8 @@ function HomeScreen({projects,saving,apiKey,onSaveApiKey,onVendors,onOpen,onCrea
                 <div style={{flex:1,minWidth:0}}>
                   <div style={{fontWeight:600,fontSize:14,color:"#0f172a",marginBottom:2}}>{p.name}</div>
                   <div style={{fontSize:12,color:"#94a3b8"}}>{p.items.length} items{rooms.length?" - "+rooms.slice(0,3).join(", ")+(rooms.length>3?" +more":""):""} - {new Date(p.updatedAt).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})}</div>
+                  {p.notes&&<div style={{fontSize:12,color:"#94a3b8",marginTop:2,overflow:"hidden",whiteSpace:"nowrap",textOverflow:"ellipsis"}}>{p.notes}</div>}
+                  {p.folderUrl&&<div style={{fontSize:12,color:"#3b82f6",marginTop:2}}>Folder linked</div>}
                 </div>
                 <button onClick={e=>{e.stopPropagation();onDeleteProject(p.id);}} style={{background:"none",border:"none",color:"#cbd5e1",cursor:"pointer",fontSize:14,padding:"2px 6px"}}>x</button>
                 <span style={{color:"#cbd5e1",fontSize:18}}>{">"}</span>
@@ -324,6 +326,7 @@ function ProjectScreen({active,vendors,saving,apiKey,onBack,updateActive}) {
   const [emailCopied,setEmailCopied]=useState(false);
   const [showContactForm,setShowContactForm]=useState(false);
   const [showVendorPicker,setShowVendorPicker]=useState(false);
+  const [showNotes,setShowNotes]=useState(false);
   const [contactForm,setContactForm]=useState({name:"",email:"",type:"vendor"});
   const [showColPicker,setShowColPicker]=useState(false);
   const [visibleCols,setVisibleCols]=useState(["component","material","vendor","brand","width","height","depth","qty","leadTime","status"]);
@@ -393,6 +396,23 @@ function ProjectScreen({active,vendors,saving,apiKey,onBack,updateActive}) {
           </select>
         </div>
       </div>
+      {showNotes&&(
+        <div style={{background:"#fffbeb",borderBottom:"1px solid #fde68a",padding:"12px 20px"}}>
+          <div style={{maxWidth:1100,margin:"0 auto"}}>
+            <div style={{fontSize:11,fontWeight:600,color:"#92400e",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:6}}>Project Notes</div>
+            <textarea value={active.notes||""} onChange={e=>updateActive(function(p){return Object.assign({},p,{notes:e.target.value});})} placeholder="e.g. St Martha resident room renovation consists of 36 rooms with 36 bathrooms. Contractor: ABC Construction. Site contact: John Smith 201-555-0100..." style={{width:"100%",border:"1px solid #fde68a",borderRadius:6,padding:"8px 10px",fontSize:13,color:"#0f172a",background:"#fff",resize:"vertical",minHeight:80,outline:"none",boxSizing:"border-box",fontFamily:"system-ui,sans-serif",marginBottom:10}}/>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{flex:1}}>
+                <div style={{fontSize:11,fontWeight:600,color:"#92400e",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:4}}>Files / Documents Folder</div>
+                <input value={active.folderUrl||""} onChange={e=>updateActive(function(p){return Object.assign({},p,{folderUrl:e.target.value});})} placeholder="Paste Dropbox, Google Drive, or OneDrive link..." style={{width:"100%",border:"1px solid #fde68a",borderRadius:6,padding:"7px 10px",fontSize:13,color:"#0f172a",background:"#fff",outline:"none",boxSizing:"border-box"}}/>
+              </div>
+              {active.folderUrl&&(
+                <a href={active.folderUrl.startsWith("http")?active.folderUrl:"https://"+active.folderUrl} target="_blank" rel="noreferrer" style={{flexShrink:0,padding:"7px 14px",background:"#92400e",color:"#fff",borderRadius:6,fontSize:12,fontWeight:500,textDecoration:"none",whiteSpace:"nowrap"}}>Open Folder</a>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{maxWidth:1100,margin:"0 auto",padding:"0 16px 60px"}}>
 
         {tab==="items"&&(
