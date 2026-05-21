@@ -240,7 +240,8 @@ function exportToExcel(active) {
   XLSX.utils.book_append_sheet(wb,ws,"Materials");
   XLSX.writeFile(wb,active.name.replace(/[^a-z0-9]/gi,"_")+"_materials.xlsx");
 }
-
+</script>
+<script type="text/babel">
 function App() {
   const [projects,setProjects]=useState([]);
   const [activeId,setActiveId]=useState(null);
