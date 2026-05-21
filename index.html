@@ -19,7 +19,7 @@ function ekey(k){return k.replace(/\//g,"__S__");}
 window.storage={
   get:async(k)=>{try{const d=await db.collection(COLL).doc(ekey(k)).get();if(!d.exists)return null;return{key:k,value:d.data().value};}catch{return null;}},
   set:async(k,v)=>{try{await db.collection(COLL).doc(ekey(k)).set({key:k,value:v,ts:Date.now()});return{key:k,value:v};}catch{return null;}},
-  delete:async(k)=>{try{await db.collection(COLL).doc(ekey(k)).delete();return{key:k,deleted:true};}catch{return null;}},
+  "delete":async(k)=>{try{await db.collection(COLL).doc(ekey(k)).delete();return{key:k,deleted:true};}catch{return null;}},
   list:async(p)=>{try{let q=db.collection(COLL);if(p)q=q.where("key",">=",p).where("key","<",p+"\uf8ff");const s=await q.get();return{keys:s.docs.map(d=>d.data().key).filter(k=>!p||k.startsWith(p))};}catch{return{keys:[]};}}
 };</script>
 <script type="text/babel">
@@ -29,7 +29,7 @@ if (typeof window.storage === "undefined") {
   window.storage = {
     get: async (k) => { try { const v=localStorage.getItem(k); return v?{key:k,value:v}:null; } catch { return null; } },
     set: async (k, v) => { try { localStorage.setItem(k,v); return {key:k,value:v}; } catch { return null; } },
-    delete: async (k) => { try { localStorage.removeItem(k); return {key:k,deleted:true}; } catch { return null; } },
+    "delete": async (k) => { try { localStorage.removeItem(k); return {key:k,deleted:true}; } catch { return null; } },
     list: async (p) => { try { const keys=[]; for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(!p||k.startsWith(p))keys.push(k);} return {keys}; } catch { return {keys:[]}; } }
   };
 }
