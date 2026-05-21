@@ -184,6 +184,31 @@ function FolderInput({value, onSave}) {
   );
 }
 
+function StatusSummary({items}) {
+  var counts={Draft:0,Ordered:0,Confirmed:0,Delivered:0};
+  items.forEach(function(it){if(counts[it.status]!==undefined)counts[it.status]++;});
+  var total=items.length;
+  if(!total)return null;
+  return (
+    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,padding:"12px 0 4px"}}>
+      {Object.entries(counts).map(function(entry){
+        var status=entry[0];var count=entry[1];
+        var sc=STATUS_CLR[status]||"#94a3b8";
+        var pct=total>0?Math.round(count/total*100):0;
+        return (
+          <div key={status} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:"10px 10px 8px",borderTop:"3px solid "+sc}}>
+            <div style={{fontSize:18,fontWeight:700,color:"#0f172a"}}>{count}</div>
+            <div style={{fontSize:10,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.5px"}}>{status}</div>
+            <div style={{marginTop:4,height:3,borderRadius:2,background:"#f1f5f9"}}>
+              <div style={{width:pct+"%",height:"100%",borderRadius:2,background:sc}}></div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function exportToExcel(active) {
   const rows=active.items.map((it,i)=>({"#":i+1,"Component":it.component||"","Room":it.room||"","Item Description":it.material||"","Client Description":it.description||"","Vendor":it.vendor||"","Brand":it.brand||"","Color":it.color||"","Finish":it.finish||"","Qty":it.qty||"","Unit":it.unit||"","Width":it.width||"","Height":it.height||"","Depth":it.depth||"","Lead Time":it.leadTime||"","Unit Price":it.unitPrice||"","Discount %":it.discount||"","Total Price":it.totalPrice||"","Notes":it.notes||"","Status":it.status||"","Website":it.website||""}));
   const ws=XLSX.utils.json_to_sheet(rows);
@@ -210,6 +235,7 @@ function App() {
       try{const k=await window.storage.get("global:apikey");if(k)setApiKey(k.value);}catch{}
       try{const vc=await window.storage.get("global:viscols");if(vc)setSavedCols(JSON.parse(vc.value));}catch{}
       setLoading(false);
+      try{const params=new URLSearchParams(window.location.search);const pid=params.get("project");if(pid){setActiveId(pid);setScreen("project");}}catch{}
     })();
   },[]);
 
@@ -230,9 +256,9 @@ function App() {
 
   if(screen==="vendors")return <VendorsScreen vendors={vendors} onBack={()=>setScreen("home")} onChange={(v)=>{setVendors(v);persistVendors(v);}}/>;
 
-  if(screen==="project"&&active)return <ProjectScreen active={active} vendors={vendors} saving={saving} apiKey={apiKey} savedCols={savedCols} onSaveVisibleCols={saveVisibleCols} onBack={()=>setScreen("home")} updateActive={updateActive}/>;
+  if(screen==="project"&&active)return <ProjectScreen active={active} vendors={vendors} saving={saving} apiKey={apiKey} savedCols={savedCols} onSaveVisibleCols={saveVisibleCols} onBack={()=>{try{window.history.pushState({},"",window.location.pathname);}catch(e){}setScreen("home");}} updateActive={updateActive}/>;
 
-  return <HomeScreen projects={projects} saving={saving} apiKey={apiKey} onSaveApiKey={saveApiKey} onVendors={()=>setScreen("vendors")} onOpen={(id)=>{setActiveId(id);setScreen("project");}} onCreateProject={(name,company)=>{const p=mkProject(name,company);setProjects(prev=>[p,...prev]);persist(p);setActiveId(p.id);setScreen("project");}} onDeleteProject={async(id)=>{try{await window.storage.delete("proj:"+id);}catch{}setProjects(prev=>prev.filter(p=>p.id!==id));}}/>;
+  return <HomeScreen projects={projects} saving={saving} apiKey={apiKey} onSaveApiKey={saveApiKey} onVendors={()=>setScreen("vendors")} onOpen={(id)=>{setActiveId(id);setScreen("project");try{window.history.pushState({},"",window.location.pathname+"?project="+id);}catch(e){}}} onCreateProject={(name,company)=>{const p=mkProject(name,company);setProjects(prev=>[p,...prev]);persist(p);setActiveId(p.id);setScreen("project");try{window.history.pushState({},"",window.location.pathname+"?project="+p.id);}catch(e){}}} onDeleteProject={async(id)=>{try{await window.storage.delete("proj:"+id);}catch{}setProjects(prev=>prev.filter(p=>p.id!==id));}}/>;
 }
 </script>
 <script type="text/babel">
@@ -355,6 +381,8 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols
   const [showContactForm,setShowContactForm]=useState(false);
   const [showVendorPicker,setShowVendorPicker]=useState(false);
   const [showNotes,setShowNotes]=useState(false);
+  const [search,setSearch]=useState("");
+  const [sortBy,setSortBy]=useState("none");
   const [contactForm,setContactForm]=useState({name:"",email:"",type:"vendor"});
   const [showColPicker,setShowColPicker]=useState(false);
   const [visibleCols,setVisibleCols]=useState(savedCols||["component","material","vendor","brand","width","height","depth","qty","leadTime","status"]);
@@ -446,7 +474,19 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols
 
         {tab==="items"&&(
           <div>
-            <div style={{display:"flex",alignItems:"center",gap:8,padding:"14px 0 10px",flexWrap:"wrap"}}>
+            <StatusSummary items={active.items}/>
+            <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 0 6px",flexWrap:"wrap"}}>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search items..." style={{flex:1,minWidth:140,border:"1px solid #e2e8f0",borderRadius:6,padding:"6px 10px",fontSize:13,outline:"none",background:"#fff"}}/>
+              <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{border:"1px solid #e2e8f0",borderRadius:6,padding:"6px 8px",fontSize:12,color:"#64748b",background:"#fff",outline:"none"}}>
+                <option value="none">Sort: Default</option>
+                <option value="status">Sort: Status</option>
+                <option value="room">Sort: Room</option>
+                <option value="vendor">Sort: Vendor</option>
+                <option value="material">Sort: Name</option>
+              </select>
+              <button onClick={()=>{copyText(window.location.href);setShowShareMsg(true);setTimeout(()=>setShowShareMsg(false),2500);}} style={{...bsty,background:showShareMsg?"#22c55e":"#f1f5f9",color:showShareMsg?"#fff":"#64748b",fontSize:12,whiteSpace:"nowrap"}}>{showShareMsg?"Copied!":"Copy Link"}</button>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:8,padding:"0 0 10px",flexWrap:"wrap"}}>
               <Btn small onClick={addItem} label="+ Add Item"/>
               <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={handleFile}/>
               <Btn small ghost onClick={()=>fileRef.current&&fileRef.current.click()} label={importing?"Reading...":"Import Excel"}/>
@@ -490,9 +530,15 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols
                 <div style={{fontSize:14}}>No items yet. Import from Excel/PDF or add manually.</div>
               </div>
             )}
-            {rooms.map(room=>(
-              <RoomTable key={room} room={room} items={active.items.filter(it=>(it.room||"Unassigned")===room)} editId={editId} onEdit={setEditId} onUpdate={updateItem} onDelete={deleteItem} selectedItems={selectedItems} onToggleSelect={(id)=>setSelectedItems(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id])} visibleCols={visibleCols}/>
-            ))}
+            {(()=>{
+              var allItems=active.items;
+              if(search.trim()){var q=search.toLowerCase();allItems=allItems.filter(it=>(it.material||"").toLowerCase().includes(q)||(it.room||"").toLowerCase().includes(q)||(it.vendor||"").toLowerCase().includes(q)||(it.brand||"").toLowerCase().includes(q)||(it.description||"").toLowerCase().includes(q)||(it.component||"").toLowerCase().includes(q));}
+              if(sortBy!=="none"){allItems=[...allItems].sort(function(a,b){var av=(a[sortBy]||"").toLowerCase();var bv=(b[sortBy]||"").toLowerCase();return av<bv?-1:av>bv?1:0;});}
+              var roomList=search.trim()||sortBy!=="none"?["Results ("+allItems.length+")"]:rooms;
+              var getItems=function(room){return search.trim()||sortBy!=="none"?allItems:allItems.filter(it=>(it.room||"Unassigned")===room);};
+              if(allItems.length===0&&search.trim())return <div style={{textAlign:"center",padding:"40px 20px",color:"#94a3b8",fontSize:14}}>No items match "{search}"</div>;
+              return roomList.map(function(room){return <RoomTable key={room} room={room} items={getItems(room)} editId={editId} onEdit={setEditId} onUpdate={updateItem} onDelete={deleteItem} selectedItems={selectedItems} onToggleSelect={function(id){setSelectedItems(function(s){return s.includes(id)?s.filter(function(x){return x!==id;}):[...s,id];});}} visibleCols={visibleCols}/>;});
+            })()}
           </div>
         )}
 
@@ -772,8 +818,17 @@ function ItemRow({item,idx,cols,activeCols,visibleCols,isMobile,isEditing,select
 function PhotoUpload({item,onUpdate}) {
   const [uploading,setUploading]=useState(false);
   const [lightbox,setLightbox]=useState(null);
+  const [dragging,setDragging]=useState(false);
   const fileRef=useRef();
   const photos=item.photos||[];
+
+  const handleDrop=async function(e){
+    e.preventDefault();e.stopPropagation();setDragging(false);
+    const files=e.dataTransfer&&e.dataTransfer.files;
+    if(files&&files.length)upload(files);
+  };
+  const handleDragOver=function(e){e.preventDefault();e.stopPropagation();setDragging(true);};
+  const handleDragLeave=function(e){e.preventDefault();setDragging(false);};
 
   const upload=async(files)=>{
     if(!files||!files.length)return;
@@ -820,7 +875,9 @@ function PhotoUpload({item,onUpdate}) {
         </div>
       )}
       <input ref={fileRef} type="file" accept="image/*" multiple style={{display:"none"}} onChange={e=>upload(e.target.files)}/>
-      <button onClick={()=>fileRef.current&&fileRef.current.click()} disabled={uploading} style={{...bsty,background:"#f1f5f9",color:"#64748b"}}>{uploading?"Uploading...":photos.length>0?"Add more photos ("+photos.length+")":"Add photos"}</button>
+      <div onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onClick={()=>fileRef.current&&fileRef.current.click()} style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,padding:"10px 16px",border:"2px dashed "+(dragging?"#3b82f6":"#e2e8f0"),borderRadius:8,background:dragging?"#eff6ff":"#f8fafc",cursor:"pointer",transition:"all 0.15s",color:dragging?"#3b82f6":"#64748b",fontSize:13}}>
+        {uploading?"Uploading...":(dragging?"Drop to upload":photos.length>0?"+ Add more photos ("+photos.length+" saved)":"+ Add photos or drag & drop")}
+      </div>
       {lightbox!==null&&(
         <div onClick={()=>setLightbox(null)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.9)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",flexDirection:"column",gap:10}}>
           <button onClick={()=>setLightbox(null)} style={{position:"absolute",top:16,right:16,background:"none",border:"none",color:"#fff",fontSize:24,cursor:"pointer"}}>x</button>
