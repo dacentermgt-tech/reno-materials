@@ -911,7 +911,17 @@ function PhotoUpload({item,onUpdate}) {
     </div>
   );
 }
+window.addEventListener('error', function(e){
+  var el=document.getElementById('root');
+  if(el)el.innerHTML='<div style="padding:20px;font-family:monospace;font-size:12px;color:red;white-space:pre-wrap">ERROR: '+e.message+'\nLine: '+e.lineno+' Col: '+e.colno+'\nFile: '+e.filename+'</div>';
+});
+class ErrorBoundary extends React.Component {
+  constructor(p){super(p);this.state={err:null};}
+  componentDidCatch(e){this.setState({err:e.message+' '+e.stack});}
+  static getDerivedStateFromError(e){return {err:e.message};}
+  render(){if(this.state.err)return React.createElement('div',{style:{padding:20,color:'red',fontFamily:'monospace',fontSize:12,whiteSpace:'pre-wrap'}},'RENDER ERROR: '+this.state.err);return this.props.children;}
+}
 const root=ReactDOM.createRoot(document.getElementById('root'));
-root.render(<App/>);
+root.render(React.createElement(ErrorBoundary,null,React.createElement(App,null)));
 </script>
 </body></html>
