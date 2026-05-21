@@ -22,83 +22,6 @@ window.storage={
   "delete":async function(k){try{await db.collection(COLL).doc(ekey(k)).delete();return{key:k,deleted:true};}catch(e){return null;}},
   list:async function(p){try{var q=db.collection(COLL);if(p)q=q.where("key",">=",p).where("key","<",p+"\uf8ff");var s=await q.get();return{keys:s.docs.map(function(d){return d.data().key;}).filter(function(k){return !p||k.startsWith(p);})};}catch(e){return{keys:[]};}}
 };</script>
-<script>
-const T = {
-  en: {
-    appName:"RenoMaterials",
-    settings:t.settings,vendors:"Vendors",newProject:"+ New Project",
-    projects:"Projects",noProjects:t.noProjects,
-    projectName:"Project Name",company:t.company,createProject:t.createProject,cancel:t.cancel,
-    back:t.back,exportXls:t.exportXls,notes:"Notes",hideNotes:"Hide Notes",saving:t.saving,
-    items:"Items",financial:t.financial,quoteEmail:t.quoteEmail,contacts:"Contacts",viewSection:t.viewSection,
-    addItem:"+ Add Item",importExcel:"Import Excel",importPdf:"Import PDF",columns:"Columns",
-    searchItems:{t.searchItems},sortDefault:t.sortDefault,sortStatus:t.sortStatus,
-    sortRoom:t.sortRoom,sortVendor:t.sortVendor,sortName:t.sortName,copyLink:"Copy Link",copied:"Copied!",
-    noItems:t.noItems,
-    projectNotes:t.projectNotes,filesFolder:t.filesFolder,
-    folderSaved:"Folder saved",edit:"Edit",openFolder:"Open Folder",
-    recipients:t.recipients,noContacts:t.noContacts,
-    emailPreview:t.emailPreview,openOutlook:t.openOutlook,copy:"Copy",
-    selectAll:t.selectAll,deselectAll:t.deselectAll,
-    addFromDirectory:t.addFromDirectory,newContact:"+ New Contact",
-    name:"Name",email:"Email",phone:"Phone",type:"Type",saveVendor:"Save Vendor",
-    addContact:"Add Contact",addedLabel:"Added",addLabel:"Add",
-    done:t.done,details:"Details",close:"Close",viewProduct:t.viewProduct,
-    itemDesc:t.itemDesc,component:"Component",room:t.room,
-    clientDesc:t.clientDesc,vendor:t.vendor,brand:t.brand,
-    color:t.color,finish:t.finish,qty:"Qty",unit:"Unit",
-    width:"Width",height:"Height",depth:"Depth",leadTime:t.leadTime,
-    websiteLink:t.websiteLink,openLink:t.openLink,copyUrl:t.copyUrl,
-    addPhotos:"+ Add photos or drag & drop",addMorePhotos:"+ Add more photos",
-    uploading:"Uploading...",dropping:"Drop to upload",
-    unitPrice:t.unitPrice,discount:t.discount,totalPrice:t.totalPrice,
-    totalCost:t.totalCost,itemsPriced:t.itemsPriced,avgPerItem:t.avgPerItem,
-    collapse:t.collapse,expand:t.expand,
-    apiKeyLabel:t.apiKeyLabel,apiKeySaved:t.apiKeySaved,
-    apiKeyHint:t.apiKeyHint,
-    readingPdf:"Reading PDF...",readingExcel:"Reading...",
-    removeConfirm:"Remove",
-    draft:"Draft",ordered:"Ordered",confirmed:"Confirmed",delivered:"Delivered",
-  },
-  es: {
-    appName:"RenoMateriales",
-    settings:"Configuracion",vendors:"Vendedores",newProject:"+ Nuevo Proyecto",
-    projects:"Proyectos",noProjects:"Sin proyectos. Cree el primero arriba.",
-    projectName:"Nombre del Proyecto",company:"Compania",createProject:"Crear Proyecto",cancel:"Cancelar",
-    back:"Atras",exportXls:"Exportar XLS",notes:"Notas",hideNotes:"Ocultar Notas",saving:"Guardando...",
-    items:"Materiales",financial:"Financiero",quoteEmail:"Correo de Cotizacion",contacts:"Contactos",viewSection:"Ver Seccion",
-    addItem:"+ Agregar",importExcel:"Importar Excel",importPdf:"Importar PDF",columns:"Columnas",
-    searchItems:"Buscar materiales...",sortDefault:"Orden: Normal",sortStatus:"Orden: Estado",
-    sortRoom:"Orden: Habitacion",sortVendor:"Orden: Vendedor",sortName:"Orden: Nombre",copyLink:"Copiar Enlace",copied:"Copiado!",
-    noItems:"Sin materiales. Importe desde Excel/PDF o agregue manualmente.",
-    projectNotes:"Notas del Proyecto",filesFolder:"Carpeta de Archivos / Documentos",
-    folderSaved:"Carpeta guardada",edit:"Editar",openFolder:"Abrir Carpeta",
-    recipients:"Destinatarios",noContacts:"Sin contactos - vaya a la pestana Contactos.",
-    emailPreview:"Vista Previa del Correo",openOutlook:"Abrir en Outlook",copy:"Copiar",
-    selectAll:"Seleccionar todo",deselectAll:"Deseleccionar todo",
-    addFromDirectory:"Agregar del Directorio",newContact:"+ Nuevo Contacto",
-    name:"Nombre",email:"Correo",phone:"Telefono",type:"Tipo",saveVendor:"Guardar Vendedor",
-    addContact:"Agregar Contacto",addedLabel:"Agregado",addLabel:"Agregar",
-    done:"Listo",details:"Detalles",close:"Cerrar",viewProduct:"Ver Producto",
-    itemDesc:"Descripcion del Material",component:"Componente",room:"Habitacion",
-    clientDesc:"Descripcion del Cliente",vendor:"Vendedor",brand:"Marca",
-    color:t.color,finish:"Acabado",qty:"Cantidad",unit:"Unidad",
-    width:"Ancho",height:"Alto",depth:"Profundidad",leadTime:"Tiempo de Entrega",
-    websiteLink:"Sitio Web / Enlace del Producto",openLink:"Abrir Enlace",copyUrl:"Copiar URL",
-    addPhotos:"+ Agregar fotos o arrastrar",addMorePhotos:"+ Mas fotos",
-    uploading:"Subiendo...",dropping:"Soltar para subir",
-    unitPrice:"Precio Unitario ($)",discount:"Descuento (%)",totalPrice:"Precio Total ($)",
-    totalCost:"Costo Total",itemsPriced:"Materiales con Precio",avgPerItem:"Promedio / Material",
-    collapse:"Colapsar",expand:"Expandir",
-    apiKeyLabel:"Clave API de Anthropic",apiKeySaved:"Clave API guardada - importacion PDF activa",
-    apiKeyHint:"Ingrese su clave API de Anthropic para habilitar la importacion de PDF.",
-    readingPdf:"Leyendo PDF...",readingExcel:"Leyendo...",
-    removeConfirm:"Eliminar",
-    draft:"Borrador",ordered:"Ordenado",confirmed:"Confirmado",delivered:"Entregado",
-  }
-};
-
-</script>
 <script type="text/babel">
 const {useState,useEffect,useRef,useCallback}=React;
 if (typeof window.storage === "undefined") {
@@ -114,83 +37,6 @@ if (typeof window.storage === "undefined") {
 const UNITS = ["each","sq ft","lin ft","cu ft","in","ft","yd","sq yd","lb","ton","gal","bag","box","sheet","roll","pallet"];
 const STATUS_OPTS = ["Draft","Ordered","Confirmed","Delivered"];
 const STATUS_CLR = {Draft:"#94a3b8",Ordered:"#f59e0b",Confirmed:"#3b82f6",Delivered:"#22c55e"};
-
-const T = {
-  en: {
-    appName:"RenoMaterials", settings:"Settings", vendors:"Vendors", newProject:"+ New Project",
-    projects:"Projects", noProjects:"No projects yet. Create your first one above.",
-    projectName:"Project Name", company:"Company", createProject:"Create Project", cancel:"Cancel",
-    back:"Back", exportXls:{t.exportXls}, notes:"Notes", hideNotes:"Hide Notes", copyLink:"Copy Link", copied:"Copied!",
-    items:"Items", financial:"Financial", quoteEmail:"Quote Email", contacts:"Contacts", viewSection:"View Section",
-    addItem:"+ Add Item", importExcel:"Import Excel", importPdf:"Import PDF", columns:"Columns",
-    readingPdf:"Reading PDF...", reading:"Reading...",
-    noItems:{t.noItems},
-    searchItems:{t.searchItems}, sortDefault:{t.sortDefault}, sortStatus:{t.sortStatus},
-    sortRoom:{t.sortRoom}, sortVendor:{t.sortVendor}, sortName:{t.sortName},
-    details:"Details", close:"Close", viewProduct:{t.viewProduct}, done:{t.done},
-    draft:"Draft", ordered:"Ordered", confirmed:"Confirmed", delivered:"Delivered",
-    projectNotes:{t.projectNotes}, projectNotesPh:"Project description, scope, contacts, site notes...",
-    folderLabel:{t.folderLabel}, folderPh:"Paste Dropbox, Google Drive, or OneDrive link...",
-    folderSaved:"Folder saved", save:"Save", edit:"Edit", open:"Open",
-    addFromDirectory:"Add from Directory", newContact:"+ New Contact", noContacts:"No contacts yet.",
-    recipients:"Recipients", emailPreview:"Email Preview", openOutlook:"Open in Outlook", copy:"Copy",
-    selectAll:"Select all", deselectAll:"Deselect all",
-    totalCost:"Total Cost", itemsPriced:"Items Priced", avgItem:"Avg / Item", total:"Total",
-    addPhotos:"+ Add photos or drag & drop", addMorePhotos:"+ Add more photos",
-    uploading:"Uploading...", dropToUpload:"Drop to upload",
-    vendorDirectory:"Vendor Directory", addVendor:"+ Add Vendor", saveVendor:"Save Vendor",
-    noVendors:"No vendors saved yet.",
-    removeConfirm:"Remove", apiKeySaved:"API key saved - PDF import enabled",
-    apiKeyLabel:"Anthropic API Key", apiKeyNote:"Enter your Anthropic API key to enable PDF import. Get one free at console.anthropic.com",
-    noApiKey:"Add API key in Settings (home screen) to enable PDF import",
-    component:"Component", itemDesc:"Item Desc", clientDesc:"Client Desc", vendor:"Vendor",
-    brand:"Brand", color:"Color", finish:"Finish", width:"Width", height:"Height",
-    depth:"Depth", qty:"Qty", leadTime:"Lead Time", status:"Status", notesCol:"Notes",
-    itemDescription:"Item Description", itemComponent:"Item Component", room:"Room",
-    clientDescription:"Client Description", productLink:"Product link",
-    unitPrice:"Unit Trade Price ($)", discount:"Trade Discount (%)", totalPrice:"Total Price ($)",
-    collapse:{t.collapse}, expand:{t.expand}, results:"Results",
-    name:"Name", email:"Email", phone:"Phone", type:"Type",
-    added:"Added", add:"Add",
-  },
-  es: {
-    appName:"RenoMaterials", settings:"Ajustes", vendors:"Proveedores", newProject:"+ Nuevo Proyecto",
-    projects:"Proyectos", noProjects:"No hay proyectos. Crea el primero arriba.",
-    projectName:"Nombre del Proyecto", company:"Empresa", createProject:"Crear Proyecto", cancel:"Cancelar",
-    back:"Atras", exportXls:"Exportar XLS", notes:"Notas", hideNotes:"Ocultar Notas", copyLink:"Copiar Enlace", copied:"Copiado!",
-    items:"Materiales", financial:"Financiero", quoteEmail:"Cotizacion", contacts:"Contactos", viewSection:"Ver Seccion",
-    addItem:"+ Agregar Material", importExcel:"Importar Excel", importPdf:"Importar PDF", columns:"Columnas",
-    readingPdf:"Leyendo PDF...", reading:"Leyendo...",
-    noItems:"Sin materiales. Importa desde Excel/PDF o agrega manualmente.",
-    searchItems:"Buscar materiales...", sortDefault:"Ordenar: Normal", sortStatus:"Ordenar: Estado",
-    sortRoom:"Ordenar: Cuarto", sortVendor:"Ordenar: Proveedor", sortName:"Ordenar: Nombre",
-    details:"Detalles", close:"Cerrar", viewProduct:"Ver Producto", done:"Listo",
-    draft:"Borrador", ordered:"Ordenado", confirmed:"Confirmado", delivered:"Entregado",
-    projectNotes:"Notas del Proyecto", projectNotesPh:"Descripcion, alcance, contactos, notas del sitio...",
-    folderLabel:"Carpeta de Archivos", folderPh:"Pega el enlace de Dropbox, Google Drive o OneDrive...",
-    folderSaved:"Carpeta guardada", save:"Guardar", edit:"Editar", open:"Abrir",
-    addFromDirectory:"Agregar del Directorio", newContact:"+ Nuevo Contacto", noContacts:"Sin contactos.",
-    recipients:"Destinatarios", emailPreview:"Vista Previa del Correo", openOutlook:"Abrir en Outlook", copy:"Copiar",
-    selectAll:"Seleccionar todo", deselectAll:"Deseleccionar todo",
-    totalCost:"Costo Total", itemsPriced:"Materiales con Precio", avgItem:"Promedio / Material", total:"Total",
-    addPhotos:"+ Agregar fotos o arrastra aqui", addMorePhotos:"+ Agregar mas fotos",
-    uploading:"Subiendo...", dropToUpload:"Suelta para subir",
-    vendorDirectory:"Directorio de Proveedores", addVendor:"+ Agregar Proveedor", saveVendor:"Guardar Proveedor",
-    noVendors:"No hay proveedores guardados.",
-    removeConfirm:"Eliminar", apiKeySaved:"Clave API guardada - importacion de PDF activada",
-    apiKeyLabel:"Clave API de Anthropic", apiKeyNote:"Ingresa tu clave API para activar la importacion de PDF. Obten una gratis en console.anthropic.com",
-    noApiKey:"Agrega la clave API en Ajustes (pantalla de inicio) para importar PDF",
-    component:"Componente", itemDesc:"Descripcion", clientDesc:"Desc. Cliente", vendor:"Proveedor",
-    brand:"Marca", color:"Color", finish:"Acabado", width:"Ancho", height:"Alto",
-    depth:"Profundidad", qty:"Cantidad", leadTime:"Tiempo de Entrega", status:"Estado", notesCol:"Notas",
-    itemDescription:"Descripcion del Material", itemComponent:"Codigo del Componente", room:"Cuarto",
-    clientDescription:"Descripcion del Cliente", productLink:"Enlace del producto",
-    unitPrice:"Precio Unitario ($)", discount:"Descuento (%)", totalPrice:"Precio Total ($)",
-    collapse:"Colapsar", expand:"Expandir", results:"Resultados",
-    name:"Nombre", email:"Correo", phone:"Telefono", type:"Tipo",
-    added:"Agregado", add:"Agregar",
-  }
-};
 const lbl = {fontSize:11,fontWeight:500,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.5px",display:"block",marginBottom:3};
 const inp = {display:"block",width:"100%",background:"#fff",border:"1px solid #e2e8f0",borderRadius:6,padding:"7px 9px",color:"#0f172a",fontSize:13,outline:"none",boxSizing:"border-box"};
 const bsty = {padding:"6px 14px",borderRadius:6,border:"none",cursor:"pointer",fontSize:12,fontWeight:500,display:"inline-flex",alignItems:"center",gap:4};
@@ -364,7 +210,7 @@ function StatusSummary({items,t}) {
   );
 }
 
-function FilteredItems({items,search,sortBy,rooms,editId,onEdit,onUpdate,onDelete,selectedItems,onToggleSelect,visibleCols,t}) {
+function FilteredItems({items,search,sortBy,rooms,editId,onEdionUpdate,onDelete,selectedItems,onToggleSelect,visibleCols}) {
   var allItems=items;
   if(search&&search.trim()){
     var q=search.toLowerCase();
@@ -382,7 +228,7 @@ function FilteredItems({items,search,sortBy,rooms,editId,onEdit,onUpdate,onDelet
     <div>
       {roomList.map(function(room){
         var roomItems=isFiltered?allItems:allItems.filter(function(it){return (it.room||"Unassigned")===room;});
-        return <RoomTable key={room} room={room} items={roomItems} editId={editId} onEdit={onEdit} onUpdate={onUpdate} onDelete={onDelete} selectedItems={selectedItems} onToggleSelect={onToggleSelect} visibleCols={visibleCols} t={t}/>;
+        return <RoomTable key={room} room={room} items={roomItems} editId={editId} onEdit={onEdit} onUpdate={onUpdate} onDelete={onDelete} selectedItems={selectedItems} onToggleSelect={onToggleSelect} visibleCols={visibleCols}/>;
       })}
     </div>
   );
@@ -398,8 +244,6 @@ function exportToExcel(active) {
 </script>
 <script type="text/babel">
 function App() {
-  const [lang,setLang]=useState("en");
-  const t=T[lang];
   const [projects,setProjects]=useState([]);
   const [activeId,setActiveId]=useState(null);
   const [screen,setScreen]=useState("home");
@@ -438,15 +282,15 @@ function App() {
 
   if(loading)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"system-ui",color:"#64748b",fontSize:14}}>Loading...</div>;
 
-  if(screen==="vendors")return <VendorsScreen vendors={vendors} t={t} onBack={()=>setScreen("home")} onChange={(v)=>{setVendors(v);persistVendors(v);}}/>;
+  if(screen==="vendors")return <VendorsScreen vendors={vendors} onBack={()=>setScreen("home")} onChange={(v)=>{setVendors(v);persistVendors(v);}}/>;
 
-  if(screen==="project"&&active)return <ProjectScreen active={active} vendors={vendors} saving={saving} apiKey={apiKey} savedCols={savedCols} t={t} onSaveVisibleCols={saveVisibleCols} onBack={()=>{try{window.history.pushState({},"",window.location.pathname);}catch(e){}setScreen("home");}} updateActive={updateActive}/>;
+  if(screen==="project"&&active)return <ProjectScreen active={active} vendors={vendors} saving={saving} apiKey={apiKey} savedCols={savedCols} onSaveVisibleCols={saveVisibleCols} onBack={()=>{try{window.history.pushState({},"",window.location.pathname);}catch(e){}setScreen("home");}} updateActive={updateActive}/>;
 
-  return <HomeScreen projects={projects} saving={saving} apiKey={apiKey} lang={lang} onLang={()=>setLang(l=>l==="en"?"es":"en")} t={t} onSaveApiKey={saveApiKey} onVendors={()=>setScreen("vendors")} onOpen={(id)=>{setActiveId(id);setScreen("project");try{window.history.pushState({},"",window.location.pathname+"?project="+id);}catch(e){}}} onCreateProject={(name,company)=>{const p=mkProject(name,company);setProjects(prev=>[p,...prev]);persist(p);setActiveId(p.id);setScreen("project");try{window.history.pushState({},"",window.location.pathname+"?project="+p.id);}catch(e){}}} onDeleteProject={async(id)=>{try{await window.storage.delete("proj:"+id);}catch{}setProjects(prev=>prev.filter(p=>p.id!==id));}}/>;
+  return <HomeScreen projects={projects} saving={saving} apiKey={apiKey} lang={lang} onLang={()=>setLang(l=>l==="en"?"es":"en")} onSaveApiKey={saveApiKey} onVendors={()=>setScreen("vendors")} onOpen={(id)=>{setActiveId(id);setScreen("project");try{window.history.pushState({},"",window.location.pathname+"?project="+id);}catch(e){}}} onCreateProject={(name,company)=>{const p=mkProject(name,company);setProjects(prev=>[p,...prev]);persist(p);setActiveId(p.id);setScreen("project");try{window.history.pushState({},"",window.location.pathname+"?project="+p.id);}catch(e){}}} onDeleteProject={async(id)=>{try{await window.storage.delete("proj:"+id);}catch{}setProjects(prev=>prev.filter(p=>p.id!==id));}}/>;
 }
 </script>
 <script type="text/babel">
-function HomeScreen({projects,saving,apiKey,lang,onLang,t,onSaveApiKey,onVendors,onOpen,onCreateProject,onDeleteProject}) {
+function HomeScreen({projects,saving,apiKey,onLang,onSaveApiKey,onVendors,onOpen,onCreateProject,onDeleteProject}) {
   const [name,setName]=useState("");
   const [company,setCompany]=useState("");
   const [showForm,setShowForm]=useState(false);
@@ -459,10 +303,9 @@ function HomeScreen({projects,saving,apiKey,lang,onLang,t,onSaveApiKey,onVendors
         <span style={{fontWeight:700,fontSize:16,color:"#0f172a"}}>RenoMaterials</span>
         {saving&&<span style={{fontSize:12,color:"#94a3b8"}}>Saving...</span>}
         <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
-          <button onClick={onLang} style={{background:"none",border:"1px solid #e2e8f0",borderRadius:20,padding:"3px 10px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#64748b"}}>{lang==="en"?"ES":"EN"}</button>
-          <Btn ghost small onClick={()=>setShowSettings(v=>!v)} label={t.settings}/>
-          <Btn ghost small onClick={onVendors} label={t.vendors}/>
-          <Btn small onClick={()=>setShowForm(true)} label={t.newProject}/>
+          <Btn ghost small onClick={()=>setShowSettings(v=>!v)} label="Settings"/>
+          <Btn ghost small onClick={onVendors} label="Vendors"/>
+          <Btn small onClick={()=>setShowForm(true)} label="+ New Project"/>
         </div>
       </div>
       <div style={{maxWidth:760,margin:"0 auto",padding:"24px"}}>
@@ -472,7 +315,7 @@ function HomeScreen({projects,saving,apiKey,lang,onLang,t,onSaveApiKey,onVendors
             <div style={{fontSize:12,color:"#64748b",marginBottom:12}}>Enter your Anthropic API key to enable PDF import. Get one free at console.anthropic.com</div>
             <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
               <div style={{flex:1}}><label style={lbl}>Anthropic API Key</label><input value={keyInput} onChange={e=>setKeyInput(e.target.value)} type="password" placeholder="sk-ant-..." style={inp}/></div>
-              <Btn onClick={()=>{onSaveApiKey(keyInput);setShowSettings(false);}} label={t.done} disabled={!keyInput.trim()}/>
+              <Btn onClick={()=>{onSaveApiKey(keyInput);setShowSettings(false);}} label="Done" disabled={!keyInput.trim()}/>
               <Btn ghost onClick={()=>setShowSettings(false)} label=t.cancel/>
             </div>
             {apiKey&&<div style={{fontSize:12,color:"#22c55e",marginTop:8}}>API key saved - PDF import enabled</div>}
@@ -482,8 +325,8 @@ function HomeScreen({projects,saving,apiKey,lang,onLang,t,onSaveApiKey,onVendors
           <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:10,padding:20,marginBottom:16}}>
             <div style={{fontSize:14,fontWeight:600,marginBottom:12,color:"#0f172a"}}>New Project</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:12}}>
-              <div><label style={lbl}>Project Name *</label><input value={name} onChange={e=>setName(e.target.value)} placeholder={t.projectName} style={inp}/></div>
-              <div><label style={lbl}>Company</label><input value={company} onChange={e=>setCompany(e.target.value)} placeholder={t.company} style={inp}/></div>
+              <div><label style={lbl}>Project Name *</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="Project Name" style={inp}/></div>
+              <div><label style={lbl}>Company</label><input value={company} onChange={e=>setCompany(e.target.value)} placeholder="Company" style={inp}/></div>
             </div>
             <div style={{display:"flex",gap:8}}>
               <Btn onClick={()=>{if(!name.trim())return;onCreateProject(name.trim(),company.trim());setName("");setCompany("");setShowForm(false);}} label=t.createProject disabled={!name.trim()}/>
@@ -492,7 +335,7 @@ function HomeScreen({projects,saving,apiKey,lang,onLang,t,onSaveApiKey,onVendors
           </div>
         )}
         <div style={{fontSize:11,fontWeight:600,color:"#94a3b8",letterSpacing:1,textTransform:"uppercase",marginBottom:8}}>Projects ({projects.length})</div>
-        {projects.length===0&&<div style={{textAlign:"center",padding:"48px 0",color:"#cbd5e1",fontSize:14}}>{t.noProjects}</div>}
+        {projects.length===0&&<div style={{textAlign:"center",padding:"48px 0",color:"#cbd5e1",fontSize:14}}>"No projects yet. Create your first one above."</div>}
         <div style={{display:"flex",flexDirection:"column",gap:6}}>
           {projects.map(p=>{
             const rooms=[...new Set(p.items.map(it=>it.room).filter(Boolean))];
@@ -515,7 +358,7 @@ function HomeScreen({projects,saving,apiKey,lang,onLang,t,onSaveApiKey,onVendors
   );
 }
 
-function VendorsScreen({vendors,t,onBack,onChange}) {
+function VendorsScreen({vendors,onBack,onChange}) {
   const [form,setForm]=useState({name:"",email:"",phone:"",type:"vendor"});
   const [showForm,setShowForm]=useState(false);
   return (
@@ -554,7 +397,7 @@ function VendorsScreen({vendors,t,onBack,onChange}) {
 }
 </script>
 <script type="text/babel">
-function ProjectScreen({active,vendors,saving,apiKey,savedCols,t,onSaveVisibleCols,onBack,updateActive}) {
+function ProjectScreen({active,vendors,saving,apiKey,savedCols,onSaveVisibleCols,onBack,updateActive}) {
   const [tab,setTab]=useState("items");
   const [editId,setEditId]=useState(null);
   const [importState,setImportState]=useState(null);
@@ -627,7 +470,7 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,t,onSaveVisibleCo
       <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"0 20px",display:"flex",alignItems:"center",gap:0}}>
         {["items","financial","email","contacts"].map(tabId=>(
           <button key={tabId} onClick={()=>{setTab(tabId);if(tabId==="email")setSelectedItems(active.items.map(it=>it.id));}} style={{padding:"10px 14px",border:"none",borderBottom:tab===tabId?"2px solid #0f172a":"2px solid transparent",background:"none",cursor:"pointer",fontSize:13,fontWeight:tab===tabId?600:400,color:tab===tabId?"#0f172a":"#64748b",textTransform:"capitalize",whiteSpace:"nowrap"}}>
-            {tabId==="items"?t.items+" ("+active.items.length+")":tabId==="financial"?t.financial:tabId==="email"?t.quoteEmail:t.contacts+" ("+active.contacts.length+")"}
+            {tabId==="items"?"Items ("+active.items.length+")":tabId==="financial"?"Financial":tabId==="email"?"Quote Email":"Contacts ("+active.contacts.length+")"}
           </button>
         ))}
         <div style={{marginLeft:"auto",position:"relative"}}>
@@ -643,7 +486,7 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,t,onSaveVisibleCo
         <div style={{background:"#fffbeb",borderBottom:"1px solid #fde68a",padding:"12px 16px"}}>
           <div style={{maxWidth:1100,margin:"0 auto"}}>
             <div style={{fontSize:11,fontWeight:600,color:"#92400e",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:6}}>Project Notes</div>
-            <textarea value={active.notes||""} onChange={e=>updateActive(function(p){return Object.assign({},p,{notes:e.target.value});})} placeholder={t.projectNotesPh} style={{width:"100%",border:"1px solid #fde68a",borderRadius:6,padding:"8px 10px",fontSize:13,color:"#0f172a",background:"#fff",resize:"vertical",minHeight:60,outline:"none",boxSizing:"border-box",fontFamily:"system-ui,sans-serif",marginBottom:10}}/>
+            <textarea value={active.notes||""} onChange={e=>updateActive(function(p){return Object.assign({},p,{notes:e.target.value});})} placeholder="Project description, scope, contacts, site notes..." style={{width:"100%",border:"1px solid #fde68a",borderRadius:6,padding:"8px 10px",fontSize:13,color:"#0f172a",background:"#fff",resize:"vertical",minHeight:60,outline:"none",boxSizing:"border-box",fontFamily:"system-ui,sans-serif",marginBottom:10}}/>
             <div style={{fontSize:11,fontWeight:600,color:"#92400e",textTransform:"uppercase",letterSpacing:"0.5px",marginBottom:4}}>Files / Documents Folder</div>
             <div style={{display:"flex",alignItems:"center",gap:8}}>
               <div style={{flex:1,minWidth:0}}>
@@ -662,7 +505,7 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,t,onSaveVisibleCo
           <div>
             <StatusSummary items={active.items} t={t}/>
             <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 0 6px",flexWrap:"wrap"}}>
-              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder={t.searchItems} style={{flex:1,minWidth:140,border:"1px solid #e2e8f0",borderRadius:6,padding:"6px 10px",fontSize:13,outline:"none",background:"#fff"}}/>
+              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search items..." style={{flex:1,minWidth:140,border:"1px solid #e2e8f0",borderRadius:6,padding:"6px 10px",fontSize:13,outline:"none",background:"#fff"}}/>
               <select value={sortBy} onChange={e=>setSortBy(e.target.value)} style={{border:"1px solid #e2e8f0",borderRadius:6,padding:"6px 8px",fontSize:12,color:"#64748b",background:"#fff",outline:"none"}}>
                 <option value="none">Sort: Default</option>
                 <option value="status">Sort: Status</option>
@@ -673,12 +516,12 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,t,onSaveVisibleCo
               <button onClick={()=>{copyText(window.location.href);setShowShareMsg(true);setTimeout(()=>setShowShareMsg(false),2500);}} style={{...bsty,background:showShareMsg?"#22c55e":"#f1f5f9",color:showShareMsg?"#fff":"#64748b",fontSize:12,whiteSpace:"nowrap"}}>{showShareMsg?t.copied:t.copyLink}</button>
             </div>
             <div style={{display:"flex",alignItems:"center",gap:8,padding:"0 0 10px",flexWrap:"wrap"}}>
-              <Btn small onClick={addItem} label={t.addItem}/>
+              <Btn small onClick={addItem} label="+ Add Item"/>
               <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" style={{display:"none"}} onChange={handleFile}/>
               <Btn small ghost onClick={()=>fileRef.current&&fileRef.current.click()} label={importing?t.readingExcel:t.importExcel}/>
               <input ref={pdfRef} type="file" accept="application/pdf" style={{display:"none"}} onChange={handlePdf}/>
               <Btn small ghost onClick={()=>pdfRef.current&&pdfRef.current.click()} label={parsingPdf?t.readingPdf:t.importPdf}/>
-              <Btn small ghost onClick={()=>setShowColPicker(v=>!v)} label={t.columns}/>
+              <Btn small ghost onClick={()=>setShowColPicker(v=>!v)} label="Columns"/>
               {!apiKey&&<span style={{fontSize:11,color:"#f59e0b"}}>Add API key in Settings (home screen) to enable PDF import</span>}
             </div>
             {showColPicker&&(
@@ -716,7 +559,7 @@ function ProjectScreen({active,vendors,saving,apiKey,savedCols,t,onSaveVisibleCo
                 <div style={{fontSize:14}}>No items yet. Import from Excel/PDF or add manually.</div>
               </div>
             )}
-            <FilteredItems items={active.items} search={search} sortBy={sortBy} rooms={rooms} editId={editId} onEdit={setEditId} onUpdate={updateItem} onDelete={deleteItem} selectedItems={selectedItems} onToggleSelect={(id)=>setSelectedItems(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id])} visibleCols={visibleCols} t={t}/>
+            <FilteredItems items={active.items} search={search} sortBy={sortBy} rooms={rooms} editId={editId} onEdit={setEditId} onUpdate={updateItem} onDelete={deleteItem} selectedItems={selectedItems} onToggleSelect={(id)=>setSelectedItems(s=>s.includes(id)?s.filter(x=>x!==id):[...s,id])} visibleCols={visibleCols}/>
           </div>
         )}
 
@@ -830,7 +673,7 @@ function useIsMobile() {
 }
 </script>
 <script type="text/babel">
-function RoomTable({room,items,editId,onEdit,onUpdate,onDelete,selectedItems,onToggleSelect,visibleCols,t}) {
+function RoomTable({room,items,editId,onEdionUpdate,onDelete,selectedItems,onToggleSelect,visibleCols}) {
   const [collapsed,setCollapsed]=useState(false);
   const isMobile=useIsMobile();
   const COL_DEFS = [
@@ -871,7 +714,7 @@ function RoomTable({room,items,editId,onEdit,onUpdate,onDelete,selectedItems,onT
   );
 }
 
-function ItemRow({item,idx,cols,activeCols,visibleCols,isMobile,t,isEditing,selected,onEdit,onUpdate,onDelete,onToggleSelect}) {
+function ItemRow({item,idx,cols,activeCols,visibleCols,isMobile,isEditing,selected,onEdit,onUpdate,onDelete,onToggleSelect}) {
   const sc=STATUS_CLR[item.status]||"#94a3b8";
   const getVal = (id) => {
     if(id==="component") return item.component||"-";
@@ -954,31 +797,31 @@ function ItemRow({item,idx,cols,activeCols,visibleCols,isMobile,t,isEditing,sele
       {isEditing&&(
         <div style={{background:"#f8fafc",borderBottom:"2px solid #e2e8f0",padding:"14px 16px"}}>
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:10}}>
-            <div style={{gridColumn:"1/-1"}}><label style={lbl}>{t.itemDescription}</label><input value={item.material} onChange={e=>onUpdate({material:e.target.value})} placeholder="Item name" style={inp}/></div>
-            <div><label style={lbl}>{t.itemComponent}</label><input value={item.component} onChange={e=>onUpdate({component:e.target.value})} placeholder="Component code" style={inp}/></div>
-            <div><label style={lbl}>{t.room}</label><input value={item.room} onChange={e=>onUpdate({room:e.target.value})} placeholder=t.room style={inp}/></div>
-            <div><label style={lbl}>{t.clientDescription}</label><input value={item.description} onChange={e=>onUpdate({description:e.target.value})} placeholder="Client description" style={inp}/></div>
-            <div><label style={lbl}>{t.vendor}</label><input value={item.vendor} onChange={e=>onUpdate({vendor:e.target.value})} placeholder=t.vendor style={inp}/></div>
-            <div><label style={lbl}>{t.brand}</label><input value={item.brand} onChange={e=>onUpdate({brand:e.target.value})} placeholder=t.brand style={inp}/></div>
-            <div><label style={lbl}>{t.color}</label><input value={item.color} onChange={e=>onUpdate({color:e.target.value})} placeholder=t.color style={inp}/></div>
-            <div><label style={lbl}>{t.finish}</label><input value={item.finish} onChange={e=>onUpdate({finish:e.target.value})} placeholder=t.finish style={inp}/></div>
+            <div style={{gridColumn:"1/-1"}}><label style={lbl}>"Item Description"</label><input value={item.material} onChange={e=>onUpdate({material:e.target.value})} placeholder="Item name" style={inp}/></div>
+            <div><label style={lbl}>"Item Component"</label><input value={item.component} onChange={e=>onUpdate({component:e.target.value})} placeholder="Component code" style={inp}/></div>
+            <div><label style={lbl}>"Room"</label><input value={item.room} onChange={e=>onUpdate({room:e.target.value})} placeholder=t.room style={inp}/></div>
+            <div><label style={lbl}>"Client Description"</label><input value={item.description} onChange={e=>onUpdate({description:e.target.value})} placeholder="Client description" style={inp}/></div>
+            <div><label style={lbl}>"Vendor"</label><input value={item.vendor} onChange={e=>onUpdate({vendor:e.target.value})} placeholder=t.vendor style={inp}/></div>
+            <div><label style={lbl}>"Brand"</label><input value={item.brand} onChange={e=>onUpdate({brand:e.target.value})} placeholder=t.brand style={inp}/></div>
+            <div><label style={lbl}>"Color"</label><input value={item.color} onChange={e=>onUpdate({color:e.target.value})} placeholder=t.color style={inp}/></div>
+            <div><label style={lbl}>"Finish"</label><input value={item.finish} onChange={e=>onUpdate({finish:e.target.value})} placeholder=t.finish style={inp}/></div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:10,marginBottom:10}}>
-            <div><label style={lbl}>{t.qty}</label><input value={item.qty} onChange={e=>onUpdate({qty:e.target.value})} type="number" min="0" placeholder="0" style={inp}/></div>
+            <div><label style={lbl}>"Qty"</label><input value={item.qty} onChange={e=>onUpdate({qty:e.target.value})} type="number" min="0" placeholder="0" style={inp}/></div>
             <div><label style={lbl}>Unit</label><select value={item.unit} onChange={e=>onUpdate({unit:e.target.value})} style={inp}>{UNITS.map(u=><option key={u}>{u}</option>)}</select></div>
-            <div><label style={lbl}>{t.width}</label><input value={item.width} onChange={e=>onUpdate({width:e.target.value})} placeholder="Width" style={inp}/></div>
-            <div><label style={lbl}>{t.height}</label><input value={item.height} onChange={e=>onUpdate({height:e.target.value})} placeholder="Height" style={inp}/></div>
-            <div><label style={lbl}>{t.depth}</label><input value={item.depth} onChange={e=>onUpdate({depth:e.target.value})} placeholder="Depth" style={inp}/></div>
-            <div><label style={lbl}>{t.leadTime}</label><input value={item.leadTime} onChange={e=>onUpdate({leadTime:e.target.value})} placeholder="6 weeks" style={inp}/></div>
+            <div><label style={lbl}>"Width"</label><input value={item.width} onChange={e=>onUpdate({width:e.target.value})} placeholder="Width" style={inp}/></div>
+            <div><label style={lbl}>"Height"</label><input value={item.height} onChange={e=>onUpdate({height:e.target.value})} placeholder="Height" style={inp}/></div>
+            <div><label style={lbl}>"Depth"</label><input value={item.depth} onChange={e=>onUpdate({depth:e.target.value})} placeholder="Depth" style={inp}/></div>
+            <div><label style={lbl}>"Lead Time"</label><input value={item.leadTime} onChange={e=>onUpdate({leadTime:e.target.value})} placeholder="6 weeks" style={inp}/></div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:10,marginBottom:10}}>
-            <div><label style={lbl}>{t.unitPrice}</label><input value={item.unitPrice||""} onChange={e=>{const up=e.target.value;const tp=up&&item.qty?((parseFloat(up)||0)*(parseFloat(item.qty)||0)*(1-(parseFloat(item.discount)||0)/100)).toFixed(2):"";onUpdate({unitPrice:up,totalPrice:tp});}} type="number" min="0" step="0.01" placeholder="0.00" style={inp}/></div>
-            <div><label style={lbl}>{t.discount}</label><input value={item.discount||""} onChange={e=>{const d=e.target.value;const tp=item.unitPrice&&item.qty?((parseFloat(item.unitPrice)||0)*(parseFloat(item.qty)||0)*(1-(parseFloat(d)||0)/100)).toFixed(2):"";onUpdate({discount:d,totalPrice:tp});}} type="number" min="0" max="100" step="0.1" placeholder="0" style={inp}/></div>
-            <div><label style={lbl}>{t.totalPrice}</label><input value={item.totalPrice||""} readOnly style={{...inp,background:"#f8fafc",color:"#64748b"}}/></div>
+            <div><label style={lbl}>"Unit Trade Price ($)"</label><input value={item.unitPrice||""} onChange={e=>{const up=e.target.value;const tp=up&&item.qty?((parseFloat(up)||0)*(parseFloat(item.qty)||0)*(1-(parseFloat(item.discount)||0)/100)).toFixed(2):"";onUpdate({unitPrice:up,totalPrice:tp});}} type="number" min="0" step="0.01" placeholder="0.00" style={inp}/></div>
+            <div><label style={lbl}>"Trade Discount (%)"</label><input value={item.discount||""} onChange={e=>{const d=e.target.value;const tp=item.unitPrice&&item.qty?((parseFloat(item.unitPrice)||0)*(parseFloat(item.qty)||0)*(1-(parseFloat(d)||0)/100)).toFixed(2):"";onUpdate({discount:d,totalPrice:tp});}} type="number" min="0" max="100" step="0.1" placeholder="0" style={inp}/></div>
+            <div><label style={lbl}>"Total Price ($)"</label><input value={item.totalPrice||""} readOnly style={{...inp,background:"#f8fafc",color:"#64748b"}}/></div>
           </div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10,marginBottom:10}}>
-            <div><label style={lbl}>{t.notesCol}</label><input value={item.notes} onChange={e=>onUpdate({notes:e.target.value})} placeholder="Notes" style={inp}/></div>
-            <div><label style={lbl}>{t.productLink}</label><input value={item.website} onChange={e=>onUpdate({website:e.target.value})} placeholder="Product link" style={inp}/></div>
+            <div><label style={lbl}>"Notes"</label><input value={item.notes} onChange={e=>onUpdate({notes:e.target.value})} placeholder="Notes" style={inp}/></div>
+            <div><label style={lbl}>"Product link"</label><input value={item.website} onChange={e=>onUpdate({website:e.target.value})} placeholder="Product link" style={inp}/></div>
           </div>
           {item.website&&(
             <div style={{display:"flex",gap:8,marginBottom:10}}>
