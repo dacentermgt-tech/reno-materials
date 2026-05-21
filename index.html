@@ -159,15 +159,28 @@ function FinancialTab({items}) {
 
 function FolderInput({value, onSave}) {
   const [local, setLocal] = useState(value||"");
-  useEffect(function(){setLocal(value||"");},[value]);
+  const [editing, setEditing] = useState(!value);
+  useEffect(function(){setLocal(value||"");setEditing(!value);},[value]);
+  if (!editing && value) {
+    return (
+      <div style={{display:"flex",alignItems:"center",gap:8,background:"#f1f5f9",borderRadius:6,padding:"7px 10px",border:"1px solid #e2e8f0"}}>
+        <span style={{flex:1,fontSize:13,color:"#64748b",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{value}</span>
+        <button onClick={function(){setEditing(true);}} style={{background:"none",border:"1px solid #e2e8f0",borderRadius:4,padding:"2px 8px",fontSize:11,color:"#64748b",cursor:"pointer",flexShrink:0,whiteSpace:"nowrap"}}>Edit</button>
+      </div>
+    );
+  }
   return (
-    <input
-      value={local}
-      onChange={e=>setLocal(e.target.value)}
-      onBlur={function(){if(local!==value)onSave(local);}}
-      placeholder="Paste Dropbox, Google Drive, or OneDrive link..."
-      style={{width:"100%",border:"1px solid #fde68a",borderRadius:6,padding:"7px 10px",fontSize:13,color:"#0f172a",background:"#fff",outline:"none",boxSizing:"border-box"}}
-    />
+    <div style={{display:"flex",gap:6}}>
+      <input
+        value={local}
+        onChange={e=>setLocal(e.target.value)}
+        placeholder="Paste Dropbox, Google Drive, or OneDrive link..."
+        autoFocus={!!value}
+        style={{flex:1,border:"1px solid #fde68a",borderRadius:6,padding:"7px 10px",fontSize:13,color:"#0f172a",background:"#fff",outline:"none",boxSizing:"border-box"}}
+      />
+      <button onClick={function(){onSave(local);setEditing(true);}} disabled={!local.trim()} style={{background:"#0f172a",color:"#fff",border:"none",borderRadius:6,padding:"7px 14px",fontSize:12,fontWeight:500,cursor:local.trim()?"pointer":"default",flexShrink:0,whiteSpace:"nowrap"}}>Save</button>
+      {value&&<button onClick={function(){setLocal(value);setEditing(true);}} style={{background:"#f1f5f9",color:"#64748b",border:"none",borderRadius:6,padding:"7px 10px",fontSize:12,cursor:"pointer",flexShrink:0}}>Cancel</button>}
+    </div>
   );
 }
 
