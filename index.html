@@ -640,14 +640,14 @@ function RoomTable({room,items,editId,onEdit,onUpdate,onDelete,selectedItems,onT
           {!isMobile&&<div style={{display:"grid",gridTemplateColumns:cols,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>
             {headers.map((h,i)=><div key={i} style={{padding:"6px 8px",fontSize:10,fontWeight:600,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.5px",whiteSpace:"nowrap",overflow:"hidden"}}>{h}</div>)}
           </div>}
-          {items.map((item,idx)=><ItemRow key={item.id} item={item} idx={idx} cols={cols} activeCols={activeCols} isMobile={isMobile} isEditing={editId===item.id} selected={selectedItems.includes(item.id)} onEdit={()=>onEdit(editId===item.id?null:item.id)} onUpdate={(patch)=>onUpdate(item.id,patch)} onDelete={()=>onDelete(item.id)} onToggleSelect={()=>onToggleSelect(item.id)}/>)}
+          {items.map((item,idx)=><ItemRow key={item.id} item={item} idx={idx} cols={cols} activeCols={activeCols} visibleCols={visibleCols} isMobile={isMobile} isEditing={editId===item.id} selected={selectedItems.includes(item.id)} onEdit={()=>onEdit(editId===item.id?null:item.id)} onUpdate={(patch)=>onUpdate(item.id,patch)} onDelete={()=>onDelete(item.id)} onToggleSelect={()=>onToggleSelect(item.id)}/>)}
         </div>
       )}
     </div>
   );
 }
 
-function ItemRow({item,idx,cols,activeCols,isMobile,isEditing,selected,onEdit,onUpdate,onDelete,onToggleSelect}) {
+function ItemRow({item,idx,cols,activeCols,visibleCols,isMobile,isEditing,selected,onEdit,onUpdate,onDelete,onToggleSelect}) {
   const sc=STATUS_CLR[item.status]||"#94a3b8";
   const getVal = (id) => {
     if(id==="component") return item.component||"-";
