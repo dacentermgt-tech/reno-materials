@@ -12,6 +12,18 @@
 <style>*{box-sizing:border-box}body{margin:0;font-family:system-ui,sans-serif;background:#f8fafc}input,select,button,textarea{font-family:inherit}</style>
 </head><body>
 <div id="root"></div>
+<div id="error" style="padding:20px;color:red;font-family:monospace;font-size:13px;white-space:pre-wrap;display:none"></div>
+<script>
+window.onerror = function(msg, src, line, col, err) {
+  document.getElementById('error').style.display='block';
+  document.getElementById('error').textContent = 'ERROR: ' + msg + '\nLine: ' + line + ' Col: ' + col + '\nFile: ' + src;
+  return false;
+};
+window.addEventListener('unhandledrejection', function(e) {
+  document.getElementById('error').style.display='block';
+  document.getElementById('error').textContent += '\nPromise rejection: ' + e.reason;
+});
+</script>
 <script>
 const firebaseConfig={apiKey:"AIzaSyA4ODk4lki5NiLgjQyfZN961rhkmcTPAuc",authDomain:"reno-materials-order-form.firebaseapp.com",projectId:"reno-materials-order-form",storageBucket:"reno-materials-order-form.firebasestorage.app",messagingSenderId:"182946152456",appId:"1:182946152456:web:c513f3862d020642acd1bd"};
 firebase.initializeApp(firebaseConfig);const db=firebase.firestore();const COLL="storage";
