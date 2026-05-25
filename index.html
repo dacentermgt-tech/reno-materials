@@ -34,8 +34,8 @@ if (typeof window !== "undefined" && typeof window.storage === "undefined") {
 }
 
 const UNITS = ["each","sq ft","lin ft","cu ft","in","ft","yd","sq yd","lb","ton","gal","bag","box","sheet","roll","pallet"];
-const STATUS_OPTS = ["Draft","Quoted","Ordered","Confirmed","Delivered"];
-const STATUS_CLR = {Draft:"#94a3b8",Quoted:"#b45309",Ordered:"#f59e0b",Confirmed:"#3b82f6",Delivered:"#22c55e"};
+const STATUS_OPTS = ["Draft","Quoted","Ordered","Confirmed","Delivered","Lordes"];
+const STATUS_CLR = {Draft:"#94a3b8",Quoted:"#b45309",Ordered:"#f59e0b",Confirmed:"#3b82f6",Delivered:"#22c55e",Lordes:"#8b5cf6"};
 const lbl = {fontSize:11,fontWeight:500,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.5px",display:"block",marginBottom:3};
 const inp = {display:"block",width:"100%",background:"#fff",border:"1px solid #e2e8f0",borderRadius:6,padding:"7px 9px",color:"#0f172a",fontSize:13,outline:"none",boxSizing:"border-box"};
 const bsty = {padding:"6px 14px",borderRadius:6,border:"none",cursor:"pointer",fontSize:12,fontWeight:500,display:"inline-flex",alignItems:"center"};
@@ -169,7 +169,7 @@ function FolderInput(props) {
 
 function StatusSummary(props) {
   var items=props.items;
-  var counts={Draft:0,Quoted:0,Ordered:0,Confirmed:0,Delivered:0};
+  var counts={Draft:0,Quoted:0,Ordered:0,Confirmed:0,Delivered:0,Lordes:0};
   items.forEach(function(it){if(counts[it.status]!==undefined)counts[it.status]++;});
   var total=items.length;
   if(!total)return null;
@@ -284,7 +284,7 @@ function FilteredItems(props) {
       var av=(a[sortCol]||"").toLowerCase();
       var bv=(b[sortCol]||"").toLowerCase();
       if(sortCol==="status"){
-        var order=["Draft","Quoted","Ordered","Confirmed","Delivered"];
+        var order=["Draft","Quoted","Ordered","Confirmed","Delivered","Lordes"];
         av=order.indexOf(a[sortCol]||"Draft");
         bv=order.indexOf(b[sortCol]||"Draft");
         return sortDir==="asc"?av-bv:bv-av;
