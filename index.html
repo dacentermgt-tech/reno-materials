@@ -270,6 +270,7 @@ function RecentChanges(props) {
 
 function FilteredItems(props) {
   var items=props.items, search=props.search, sortBy=props.sortBy, rooms=props.rooms;
+  var sortCol=props.sortCol, sortDir=props.sortDir;
   var allItems=items;
   if(search&&search.trim()){
     var q=search.toLowerCase();
@@ -277,6 +278,20 @@ function FilteredItems(props) {
   }
   if(sortBy&&sortBy!=="none"){
     allItems=[...allItems].sort(function(a,b){var av=(a[sortBy]||"").toLowerCase();var bv=(b[sortBy]||"").toLowerCase();return av<bv?-1:av>bv?1:0;});
+  }
+  if(sortCol){
+    allItems=[...allItems].sort(function(a,b){
+      var av=(a[sortCol]||"").toLowerCase();
+      var bv=(b[sortCol]||"").toLowerCase();
+      if(sortCol==="status"){
+        var order=["Draft","Quoted","Ordered","Confirmed","Delivered"];
+        av=order.indexOf(a[sortCol]||"Draft");
+        bv=order.indexOf(b[sortCol]||"Draft");
+        return sortDir==="asc"?av-bv:bv-av;
+      }
+      if(sortDir==="asc")return av<bv?-1:av>bv?1:0;
+      return av>bv?-1:av<bv?1:0;
+    });
   }
   var isFiltered=(search&&search.trim())||(sortBy&&sortBy!=="none");
   var roomList=isFiltered?["Results ("+allItems.length+")"]:rooms;
@@ -287,7 +302,7 @@ function FilteredItems(props) {
     <div>
       {roomList.map(function(room){
         var roomItems=isFiltered?allItems:allItems.filter(function(it){return (it.room||"Unassigned")===room;});
-        return <RoomTable key={room} room={room} items={roomItems} editId={props.editId} onEdit={props.onEdit} onUpdate={props.onUpdate} onDelete={props.onDelete} selectedItems={props.selectedItems} onToggleSelect={props.onToggleSelect} visibleCols={props.visibleCols}/>;
+        return <RoomTable key={room} room={room} items={roomItems} editId={props.editId} onEdit={props.onEdit} onUpdate={props.onUpdate} onDelete={props.onDelete} selectedItems={props.selectedItems} onToggleSelect={props.onToggleSelect} visibleCols={props.visibleCols} sortCol={sortCol} sortDir={sortDir} onSortCol={props.onSortCol}/>;
       })}
     </div>
   );
@@ -608,6 +623,8 @@ function ProjectScreen(props) {
   const [showShareMsg,setShowShareMsg]=useState(false);
   const [showColPicker,setShowColPicker]=useState(false);
   const [visibleCols,setVisibleCols]=useState(props.savedCols||["component","material","vendor","brand","width","height","depth","qty","leadTime","status"]);
+  const [sortCol,setSortCol]=useState(null);
+  const [sortDir,setSortDir]=useState("asc");
   const fileRef=useRef();
   const pdfRef=useRef();
 
@@ -676,7 +693,7 @@ function ProjectScreen(props) {
       </div>
       <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"0 20px",display:"flex",alignItems:"center",gap:0,overflowX:"auto"}}>
         {["items","financial","email","contacts"].map(function(tabId){return (
-          <button key={tabId} onClick={function(){setTab(tabId);if(tabId==="email")setSelectedItems(active.items.map(function(it){return it.id;}));}} style={{padding:"10px 14px",border:"none",borderBottom:tab===tabId?"2px solid #0f172a":"2px solid transparent",background:"none",cursor:"pointer",fontSize:13,fontWeight:tab===tabId?600:400,color:tab===tabId?"#0f172a":"#64748b",whiteSpace:"nowrap"}}>
+          <button key={tabId} onClick={function(){setTab(tabId);if(tabId==="email")setSelectedItems(active.items.filter(function(it){return it.status==="Draft";}).map(function(it){return it.id;}));}} style={{padding:"10px 14px",border:"none",borderBottom:tab===tabId?"2px solid #0f172a":"2px solid transparent",background:"none",cursor:"pointer",fontSize:13,fontWeight:tab===tabId?600:400,color:tab===tabId?"#0f172a":"#64748b",whiteSpace:"nowrap"}}>
             {tabId==="items"?"Items ("+active.items.length+")":tabId==="financial"?"Financial":tabId==="email"?"Quote Email":"Contacts ("+active.contacts.length+")"}
           </button>
         );})}
@@ -763,7 +780,7 @@ function ProjectScreen(props) {
                 <div style={{fontSize:14}}>No items yet. Import from Excel/PDF or add manually.</div>
               </div>
             )}
-            <FilteredItems items={active.items} search={search} sortBy={sortBy} rooms={rooms} editId={editId} onEdit={setEditId} onUpdate={updateItem} onDelete={deleteItem} selectedItems={selectedItems} onToggleSelect={function(id){setSelectedItems(function(s){return s.includes(id)?s.filter(function(x){return x!==id;}):[...s,id];});}} visibleCols={visibleCols}/>
+            <FilteredItems items={active.items} search={search} sortBy={sortBy} rooms={rooms} sortCol={sortCol} sortDir={sortDir} editId={editId} onEdit={setEditId} onUpdate={updateItem} onDelete={deleteItem} selectedItems={selectedItems} onToggleSelect={function(id){setSelectedItems(function(s){return s.includes(id)?s.filter(function(x){return x!==id;}):[...s,id];});}} visibleCols={visibleCols} onSortCol={function(col){if(sortCol===col){setSortDir(function(d){return d==="asc"?"desc":"asc";});}else{setSortCol(col);setSortDir("asc");}}}/>
           </div>
         )}
         {tab==="financial"&&<FinancialTab items={active.items}/>}
@@ -787,15 +804,16 @@ function ProjectScreen(props) {
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                   <span style={{fontSize:13,fontWeight:600,color:"#0f172a"}}>Items ({selectedItems.length} selected)</span>
                   <button onClick={function(){
-                    if(selectedItems.length===active.items.length){
+                    var draftIds=active.items.filter(function(it){return it.status==="Draft";}).map(function(it){return it.id;});
+                    if(selectedItems.length===draftIds.length&&draftIds.every(function(id){return selectedItems.includes(id);})){
                       setSelectedItems([]);
                     } else {
-                      setSelectedItems(active.items.map(function(it){return it.id;}));
+                      setSelectedItems(draftIds);
                     }
-                  }} style={{fontSize:12,color:"#64748b",background:"none",border:"none",cursor:"pointer"}}>{selectedItems.length===active.items.length?"Deselect all":"Select all"}</button>
+                  }} style={{fontSize:12,color:"#64748b",background:"none",border:"none",cursor:"pointer"}}>{selectedItems.length>0&&selectedItems.length===active.items.filter(function(it){return it.status==="Draft";}).length?"Deselect all":"Select all"}</button>
                 </div>
                 <div style={{maxHeight:200,overflowY:"auto"}}>
-                  {active.items.map(function(it){
+                  {active.items.filter(function(it){return it.status==="Draft"||selectedItems.includes(it.id);}).map(function(it){
                     var checked=selectedItems.includes(it.id);
                     return (
                       <label key={it.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",cursor:"pointer",borderBottom:"1px solid #f1f5f9"}}>
@@ -882,6 +900,7 @@ function ProjectScreen(props) {
 function RoomTable(props) {
   const [collapsed,setCollapsed]=useState(false);
   const isMobile=useIsMobile();
+  var sortCol=props.sortCol, sortDir=props.sortDir, onSortCol=props.onSortCol;
   const COL_DEFS=[
     {id:"component",label:"Component",w:"120px"},{id:"material",label:"Item Description",w:"1fr"},
     {id:"description",label:"Client Desc",w:"120px"},{id:"vendor",label:"Vendor",w:"90px"},
@@ -906,7 +925,18 @@ function RoomTable(props) {
         <div>
           {!isMobile&&(
             <div style={{display:"grid",gridTemplateColumns:cols,background:"#f8fafc",borderBottom:"1px solid #e2e8f0"}}>
-              {headers.map(function(h,i){return <div key={i} style={{padding:"6px 8px",fontSize:10,fontWeight:600,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.5px",whiteSpace:"nowrap",overflow:"hidden"}}>{h}</div>;})}
+              {headers.map(function(h,i){
+                var colId=activeCols[i-2]&&activeCols[i-2].id;
+                var isActive=sortCol&&colId&&sortCol===colId;
+                var clickable=i>=2&&colId&&onSortCol;
+                return (
+                  <div key={i} onClick={clickable?function(){onSortCol(colId);}:undefined} style={{padding:"6px 8px",fontSize:10,fontWeight:600,color:isActive?"#0f172a":"#94a3b8",textTransform:"uppercase",letterSpacing:"0.5px",whiteSpace:"nowrap",overflow:"hidden",cursor:clickable?"pointer":"default",userSelect:"none",display:"flex",alignItems:"center",gap:3}}>
+                    {h}
+                    {isActive&&<span style={{fontSize:9}}>{sortDir==="asc"?"^":"v"}</span>}
+                    {!isActive&&clickable&&<span style={{fontSize:9,opacity:0.3}}>^</span>}
+                  </div>
+                );
+              })}
             </div>
           )}
           {props.items.map(function(item,idx){return <ItemRow key={item.id} item={item} idx={idx} cols={cols} activeCols={activeCols} visibleCols={props.visibleCols} isMobile={isMobile} isEditing={props.editId===item.id} selected={props.selectedItems.includes(item.id)} onEdit={function(){props.onEdit(props.editId===item.id?null:item.id);}} onUpdate={function(patch){props.onUpdate(item.id,patch);}} onDelete={function(){props.onDelete(item.id);}} onToggleSelect={function(){props.onToggleSelect(item.id);}}/>;  })}
