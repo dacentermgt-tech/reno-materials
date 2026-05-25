@@ -347,7 +347,11 @@ function LoginScreen(props) {
   const [adminPin,setAdminPin]=useState("");
   const [newName,setNewName]=useState("");
   const [newPin,setNewPin]=useState("");
+  const [newAdminPin,setNewAdminPin]=useState("");
+  const [newAdminPin2,setNewAdminPin2]=useState("");
   const [users,setUsers]=useState(props.users);
+
+  var getAdmin=function(){return users.find(function(u){return u.name==="Admin";});};
 
   var tryLogin=function(){
     var user=users.find(function(u){return u.pin===pin;});
@@ -357,23 +361,39 @@ function LoginScreen(props) {
 
   var handleKey=function(e){if(e.key==="Enter")tryLogin();};
 
+  var tryUnlock=function(){
+    var admin=getAdmin();
+    if(admin&&adminPin===admin.pin){setAdminMode(true);setError("");}
+    else{setError("Wrong admin PIN.");}
+  };
+
   var addUser=function(){
     if(!newName.trim()||newPin.length!==4)return;
     if(users.some(function(u){return u.pin===newPin;})){setError("PIN already in use");return;}
-    var updated=[...users,{name:newName.trim(),pin:newPin}];
+    var updated=[...users,{name:newName.trim(),pin:newPin,hidden:false}];
     setUsers(updated);props.onSaveUsers(updated);
     setNewName("");setNewPin("");setError("");
   };
 
-  var removeUser=function(pin){
-    if(pin==="0000"){alert("Cannot remove Admin");return;}
-    var updated=users.filter(function(u){return u.pin!==pin;});
+  var removeUser=function(p){
+    var updated=users.filter(function(u){return u.pin!==p;});
     setUsers(updated);props.onSaveUsers(updated);
   };
 
+  var changeAdminPin=function(){
+    if(newAdminPin.length!==4){setError("PIN must be 4 digits");return;}
+    if(newAdminPin!==newAdminPin2){setError("PINs do not match");return;}
+    var updated=users.map(function(u){return u.name==="Admin"?Object.assign({},u,{pin:newAdminPin}):u;});
+    setUsers(updated);props.onSaveUsers(updated);
+    setNewAdminPin("");setNewAdminPin2("");setError("");
+    alert("Admin PIN changed successfully!");
+  };
+
+  var nonAdminUsers=users.filter(function(u){return u.name!=="Admin";});
+
   return (
     <div style={{minHeight:"100vh",background:"#f8fafc",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"system-ui,sans-serif"}}>
-      <div style={{width:"100%",maxWidth:360,padding:"0 20px"}}>
+      <div style={{width:"100%",maxWidth:380,padding:"0 20px"}}>
         <div style={{textAlign:"center",marginBottom:32}}>
           <div style={{fontSize:28,fontWeight:700,color:"#0f172a",marginBottom:4}}>RenoMaterials</div>
           <div style={{fontSize:14,color:"#64748b"}}>Enter your PIN to continue</div>
@@ -386,38 +406,51 @@ function LoginScreen(props) {
             </div>
             {error&&<div style={{fontSize:13,color:"#ef4444",marginBottom:12,textAlign:"center"}}>{error}</div>}
             <button onClick={tryLogin} disabled={pin.length!==4} style={{width:"100%",background:pin.length===4?"#0f172a":"#e2e8f0",color:pin.length===4?"#fff":"#94a3b8",border:"none",borderRadius:8,padding:"12px",fontSize:14,fontWeight:600,cursor:pin.length===4?"pointer":"default"}}>Sign In</button>
-            <button onClick={function(){setShowManage(true);}} style={{width:"100%",background:"none",border:"none",color:"#94a3b8",fontSize:12,cursor:"pointer",marginTop:12,padding:"4px"}}>Manage Users</button>
+            <button onClick={function(){setShowManage(true);setError("");}} style={{width:"100%",background:"none",border:"none",color:"#94a3b8",fontSize:12,cursor:"pointer",marginTop:12,padding:"4px"}}>Admin</button>
           </div>
         ) : (
           <div style={{background:"#fff",borderRadius:12,padding:24,border:"1px solid #e2e8f0",boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
-            <div style={{fontSize:14,fontWeight:600,color:"#0f172a",marginBottom:4}}>Manage Users</div>
-            <div style={{fontSize:12,color:"#64748b",marginBottom:12}}>Enter Admin PIN (0000) to manage</div>
+            <div style={{fontSize:14,fontWeight:600,color:"#0f172a",marginBottom:12}}>Admin Panel</div>
             {!adminMode ? (
-              <div style={{display:"flex",gap:8,marginBottom:16}}>
-                <input value={adminPin} onChange={function(e){setAdminPin(e.target.value.replace(/[^0-9]/g,"").slice(0,4));}} type="password" inputMode="numeric" maxLength={4} placeholder="Admin PIN" style={{flex:1,border:"1px solid #e2e8f0",borderRadius:6,padding:"8px 10px",fontSize:14,outline:"none"}}/>
-                <button onClick={function(){if(adminPin===users.find(function(u){return u.name==="Admin";})&&users.find(function(u){return u.name==="Admin";}).pin||adminPin==="0000")setAdminMode(true);else setError("Wrong admin PIN");}} style={{background:"#0f172a",color:"#fff",border:"none",borderRadius:6,padding:"8px 14px",fontSize:13,cursor:"pointer"}}>Unlock</button>
+              <div>
+                <label style={{fontSize:12,fontWeight:600,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.5px",display:"block",marginBottom:6}}>Admin PIN</label>
+                <div style={{display:"flex",gap:8,marginBottom:8}}>
+                  <input value={adminPin} onChange={function(e){setAdminPin(e.target.value.replace(/[^0-9]/g,"").slice(0,4));setError("");}} onKeyDown={function(e){if(e.key==="Enter")tryUnlock();}} type="password" inputMode="numeric" maxLength={4} placeholder="Enter admin PIN" autoFocus style={{flex:1,border:"1px solid #e2e8f0",borderRadius:6,padding:"8px 10px",fontSize:16,outline:"none",textAlign:"center",letterSpacing:6}}/>
+                  <button onClick={tryUnlock} disabled={adminPin.length!==4} style={{background:"#0f172a",color:"#fff",border:"none",borderRadius:6,padding:"8px 16px",fontSize:13,cursor:adminPin.length===4?"pointer":"default"}}>Unlock</button>
+                </div>
+                {error&&<div style={{fontSize:12,color:"#ef4444",marginBottom:8}}>{error}</div>}
               </div>
             ) : (
               <div>
-                <div style={{marginBottom:12}}>
-                  {users.map(function(u){return (
-                    <div key={u.pin} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid #f1f5f9"}}>
+                <div style={{fontSize:12,fontWeight:600,color:"#0f172a",marginBottom:8}}>Users</div>
+                <div style={{marginBottom:14}}>
+                  {nonAdminUsers.length===0&&<div style={{fontSize:12,color:"#94a3b8",padding:"8px 0"}}>No users yet. Add one below.</div>}
+                  {nonAdminUsers.map(function(u){return (
+                    <div key={u.pin} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 0",borderBottom:"1px solid #f1f5f9"}}>
                       <span style={{flex:1,fontSize:13,fontWeight:500,color:"#0f172a"}}>{u.name}</span>
-                      <span style={{fontSize:12,color:"#94a3b8",fontFamily:"monospace"}}>{"****"}</span>
-                      {u.name!=="Admin"&&<button onClick={function(){removeUser(u.pin);}} style={{background:"none",border:"none",color:"#ef4444",cursor:"pointer",fontSize:12}}>Remove</button>}
+                      <span style={{fontSize:11,color:"#94a3b8",fontFamily:"monospace"}}>PIN: ****</span>
+                      <button onClick={function(){removeUser(u.pin);}} style={{background:"none",border:"none",color:"#ef4444",cursor:"pointer",fontSize:12,padding:"0 4px"}}>Remove</button>
                     </div>
                   );})}
                 </div>
                 <div style={{fontSize:12,fontWeight:600,color:"#0f172a",marginBottom:8}}>Add New User</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 80px",gap:8,marginBottom:8}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 90px",gap:8,marginBottom:8}}>
                   <input value={newName} onChange={function(e){setNewName(e.target.value);}} placeholder="Name" style={{border:"1px solid #e2e8f0",borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none"}}/>
-                  <input value={newPin} onChange={function(e){setNewPin(e.target.value.replace(/[^0-9]/g,"").slice(0,4));}} type="password" inputMode="numeric" maxLength={4} placeholder="PIN" style={{border:"1px solid #e2e8f0",borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none",textAlign:"center"}}/>
+                  <input value={newPin} onChange={function(e){setNewPin(e.target.value.replace(/[^0-9]/g,"").slice(0,4));}} type="password" inputMode="numeric" maxLength={4} placeholder="PIN" style={{border:"1px solid #e2e8f0",borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none",textAlign:"center",letterSpacing:4}}/>
                 </div>
                 {error&&<div style={{fontSize:12,color:"#ef4444",marginBottom:8}}>{error}</div>}
-                <button onClick={addUser} disabled={!newName.trim()||newPin.length!==4} style={{width:"100%",background:"#0f172a",color:"#fff",border:"none",borderRadius:6,padding:"8px",fontSize:13,cursor:"pointer",marginBottom:8}}>Add User</button>
+                <button onClick={addUser} disabled={!newName.trim()||newPin.length!==4} style={{width:"100%",background:"#0f172a",color:"#fff",border:"none",borderRadius:6,padding:"8px",fontSize:13,cursor:(!newName.trim()||newPin.length!==4)?"default":"pointer",marginBottom:14}}>Add User</button>
+                <div style={{borderTop:"1px solid #f1f5f9",paddingTop:14}}>
+                  <div style={{fontSize:12,fontWeight:600,color:"#0f172a",marginBottom:8}}>Change Admin PIN</div>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:8}}>
+                    <input value={newAdminPin} onChange={function(e){setNewAdminPin(e.target.value.replace(/[^0-9]/g,"").slice(0,4));setError("");}} type="password" inputMode="numeric" maxLength={4} placeholder="New PIN" style={{border:"1px solid #e2e8f0",borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none",textAlign:"center",letterSpacing:4}}/>
+                    <input value={newAdminPin2} onChange={function(e){setNewAdminPin2(e.target.value.replace(/[^0-9]/g,"").slice(0,4));setError("");}} type="password" inputMode="numeric" maxLength={4} placeholder="Confirm" style={{border:"1px solid #e2e8f0",borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none",textAlign:"center",letterSpacing:4}}/>
+                  </div>
+                  <button onClick={changeAdminPin} disabled={newAdminPin.length!==4||newAdminPin2.length!==4} style={{width:"100%",background:"#f1f5f9",color:"#64748b",border:"none",borderRadius:6,padding:"8px",fontSize:13,cursor:"pointer",marginBottom:4}}>Save New Admin PIN</button>
+                </div>
               </div>
             )}
-            <button onClick={function(){setShowManage(false);setAdminMode(false);setAdminPin("");setError("");}} style={{width:"100%",background:"none",border:"1px solid #e2e8f0",borderRadius:6,padding:"8px",fontSize:13,color:"#64748b",cursor:"pointer"}}>Back to Login</button>
+            <button onClick={function(){setShowManage(false);setAdminMode(false);setAdminPin("");setError("");setNewAdminPin("");setNewAdminPin2("");}} style={{width:"100%",background:"none",border:"1px solid #e2e8f0",borderRadius:6,padding:"8px",fontSize:13,color:"#64748b",cursor:"pointer",marginTop:8}}>Back to Login</button>
           </div>
         )}
       </div>
