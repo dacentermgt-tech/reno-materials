@@ -44,8 +44,26 @@ function Btn(props) {
   return <button onClick={props.onClick} disabled={props.disabled} style={Object.assign({},bsty,{padding:props.small?"5px 12px":"7px 16px",background:props.ghost?"#f1f5f9":props.disabled?"#e2e8f0":"#0f172a",color:props.ghost?"#64748b":props.disabled?"#94a3b8":"#fff",cursor:props.disabled?"default":"pointer",fontSize:props.small?12:13})}>{props.label}</button>;
 }
 
-const mkItem = function() { return {id:"item-"+Date.now(),component:"",room:"",material:"",description:"",vendor:"",brand:"",color:"",finish:"",qty:"",unit:"each",width:"",height:"",depth:"",leadTime:"",notes:"",website:"",photos:[],status:"Draft",unitPrice:"",discount:"",totalPrice:""}; };
+const mkItem = function() { return {id:"item-"+Date.now(),component:"",room:"",material:"",description:"",vendor:"",brand:"",color:"",finish:"",qty:"",unit:"each",width:"",height:"",depth:"",leadTime:"",notes:"",website:"",photos:[],status:"Draft",unitPrice:"",discount:"",totalPrice:"",updatedAt:"",updatedBy:""}; };
 const mkProject = function(name,company) { return {id:"proj-"+Date.now(),name:name||"",company:company||"",notes:"",folderUrl:"",contacts:[],items:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}; };
+
+function timeAgo(iso) {
+  if(!iso)return "";
+  var diff=Date.now()-new Date(iso).getTime();
+  var mins=Math.floor(diff/60000);
+  var hours=Math.floor(diff/3600000);
+  var days=Math.floor(diff/86400000);
+  if(mins<1)return "just now";
+  if(mins<60)return mins+"m ago";
+  if(hours<24)return hours+"h ago";
+  if(days===1)return "Yesterday";
+  if(days<7)return days+" days ago";
+  return new Date(iso).toLocaleDateString("en-US",{month:"short",day:"numeric"});
+}
+
+var DEFAULT_USERS = [
+  {name:"Admin",pin:"0000"},
+];
 
 const COL_DEFS_MAP = {component:["item component","component"],room:["room description","room","location","area"],material:["item description","item desc","description","desc"],description:["client description","client desc"],vendor:["vendor id","vendor","supplier"],brand:["brand","manufacturer"],color:["color","colour"],finish:["finish"],qty:["qty","quantity","amount"],unit:["unit","uom"],width:["width"],height:["height"],depth:["depth"],leadTime:["lead time","leadtime"]};
 
@@ -222,6 +240,34 @@ function FinancialTab(props) {
   );
 }
 
+function RecentChanges(props) {
+  var items=props.items;
+  var cutoff=Date.now()-(7*24*60*60*1000);
+  var recent=items.filter(function(it){return it.updatedAt&&new Date(it.updatedAt).getTime()>cutoff;});
+  recent=recent.slice().sort(function(a,b){return new Date(b.updatedAt)-new Date(a.updatedAt);});
+  if(!recent.length)return null;
+  return (
+    <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:"12px 14px",marginBottom:10}}>
+      <div style={{fontSize:12,fontWeight:600,color:"#0f172a",marginBottom:8}}>Recent Changes ({recent.length})</div>
+      <div style={{maxHeight:160,overflowY:"auto"}}>
+        {recent.map(function(it){return (
+          <div key={it.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",borderBottom:"1px solid #f1f5f9"}}>
+            <div style={{flex:1,minWidth:0}}>
+              <span style={{fontSize:13,fontWeight:500,color:"#0f172a"}}>{it.material||"(no name)"}</span>
+              {it.room&&<span style={{fontSize:11,color:"#94a3b8",marginLeft:6}}>{it.room}</span>}
+            </div>
+            <div style={{textAlign:"right",flexShrink:0}}>
+              {it.updatedBy&&<div style={{fontSize:11,fontWeight:500,color:"#3b82f6"}}>{it.updatedBy}</div>}
+              <div style={{fontSize:11,color:"#94a3b8"}}>{timeAgo(it.updatedAt)}</div>
+            </div>
+          </div>
+        );})}
+      </div>
+    </div>
+  );
+}
+
+
 function FilteredItems(props) {
   var items=props.items, search=props.search, sortBy=props.sortBy, rooms=props.rooms;
   var allItems=items;
@@ -249,6 +295,7 @@ function FilteredItems(props) {
 </script>
 <script type="text/babel">
 function App() {
+  const [currentUser,setCurrentUser]=useState(null);
   const [projects,setProjects]=useState([]);
   const [activeId,setActiveId]=useState(null);
   const [screen,setScreen]=useState("home");
@@ -265,6 +312,7 @@ function App() {
       try{var v=await window.storage.get("global:vendors");if(v)setVendors(JSON.parse(v.value));}catch(e){}
       try{var k=await window.storage.get("global:apikey");if(k)setApiKey(k.value);}catch(e){}
       try{var vc=await window.storage.get("global:viscols");if(vc)setSavedCols(JSON.parse(vc.value));}catch(e){}
+      try{var ul=await window.storage.get("global:users");if(ul){var parsed=JSON.parse(ul.value);if(parsed&&parsed.length)DEFAULT_USERS=parsed;}}catch(e){}
       setLoading(false);
       try{var params=new URLSearchParams(window.location.search);var pid=params.get("project");if(pid){setActiveId(pid);setScreen("project");}}catch(e){}
     })();
@@ -284,12 +332,100 @@ function App() {
   },[activeId]);
 
   if(loading)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"system-ui",color:"#64748b",fontSize:14}}>Loading...</div>;
+  if(!currentUser)return <LoginScreen users={DEFAULT_USERS} onLogin={function(user){setCurrentUser(user);}} onSaveUsers={async function(users){DEFAULT_USERS=users;try{await window.storage.set("global:users",JSON.stringify(users));}catch(e){}}} apiKey={apiKey}/>;
   if(screen==="vendors")return <VendorsScreen vendors={vendors} onBack={function(){setScreen("home");}} onChange={function(v){setVendors(v);persistVendors(v);}}/>;
-  if(screen==="project"&&active)return <ProjectScreen active={active} vendors={vendors} saving={saving} apiKey={apiKey} savedCols={savedCols} onSaveVisibleCols={saveVisibleCols} onBack={function(){try{window.history.pushState({},"",window.location.pathname);}catch(e){}setScreen("home");}} updateActive={updateActive}/>;
-  return <HomeScreen projects={projects} saving={saving} apiKey={apiKey} onSaveApiKey={saveApiKey} onVendors={function(){setScreen("vendors");}} onOpen={function(id){setActiveId(id);setScreen("project");try{window.history.pushState({},"",window.location.pathname+"?project="+id);}catch(e){}}} onCreateProject={function(name,company){var p=mkProject(name,company);setProjects(function(prev){return [p,...prev];});persist(p);setActiveId(p.id);setScreen("project");try{window.history.pushState({},"",window.location.pathname+"?project="+p.id);}catch(e){}}} onDeleteProject={async function(id){try{await window.storage.delete("proj:"+id);}catch(e){}setProjects(function(prev){return prev.filter(function(p){return p.id!==id;});});}}/>;
+  if(screen==="project"&&active)return <ProjectScreen active={active} vendors={vendors} saving={saving} apiKey={apiKey} savedCols={savedCols} onSaveVisibleCols={saveVisibleCols} currentUser={currentUser} onBack={function(){try{window.history.pushState({},"",window.location.pathname);}catch(e){}setScreen("home");}} updateActive={updateActive}/>;
+  return <HomeScreen projects={projects} saving={saving} apiKey={apiKey} currentUser={currentUser} onLogout={function(){setCurrentUser(null);}} onSaveApiKey={saveApiKey} onVendors={function(){setScreen("vendors");}} onOpen={function(id){setActiveId(id);setScreen("project");try{window.history.pushState({},"",window.location.pathname+"?project="+id);}catch(e){}}} onCreateProject={function(name,company){var p=mkProject(name,company);setProjects(function(prev){return [p,...prev];});persist(p);setActiveId(p.id);setScreen("project");try{window.history.pushState({},"",window.location.pathname+"?project="+p.id);}catch(e){}}} onDeleteProject={async function(id){try{await window.storage.delete("proj:"+id);}catch(e){}setProjects(function(prev){return prev.filter(function(p){return p.id!==id;});});}}/>;
 }
 </script>
 <script type="text/babel">
+function LoginScreen(props) {
+  const [pin,setPin]=useState("");
+  const [error,setError]=useState("");
+  const [showManage,setShowManage]=useState(false);
+  const [adminMode,setAdminMode]=useState(false);
+  const [adminPin,setAdminPin]=useState("");
+  const [newName,setNewName]=useState("");
+  const [newPin,setNewPin]=useState("");
+  const [users,setUsers]=useState(props.users);
+
+  var tryLogin=function(){
+    var user=users.find(function(u){return u.pin===pin;});
+    if(user){setError("");props.onLogin(user);}
+    else{setError("Incorrect PIN. Try again.");setPin("");}
+  };
+
+  var handleKey=function(e){if(e.key==="Enter")tryLogin();};
+
+  var addUser=function(){
+    if(!newName.trim()||newPin.length!==4)return;
+    if(users.some(function(u){return u.pin===newPin;})){setError("PIN already in use");return;}
+    var updated=[...users,{name:newName.trim(),pin:newPin}];
+    setUsers(updated);props.onSaveUsers(updated);
+    setNewName("");setNewPin("");setError("");
+  };
+
+  var removeUser=function(pin){
+    if(pin==="0000"){alert("Cannot remove Admin");return;}
+    var updated=users.filter(function(u){return u.pin!==pin;});
+    setUsers(updated);props.onSaveUsers(updated);
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:"#f8fafc",display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"system-ui,sans-serif"}}>
+      <div style={{width:"100%",maxWidth:360,padding:"0 20px"}}>
+        <div style={{textAlign:"center",marginBottom:32}}>
+          <div style={{fontSize:28,fontWeight:700,color:"#0f172a",marginBottom:4}}>RenoMaterials</div>
+          <div style={{fontSize:14,color:"#64748b"}}>Enter your PIN to continue</div>
+        </div>
+        {!showManage ? (
+          <div style={{background:"#fff",borderRadius:12,padding:24,border:"1px solid #e2e8f0",boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
+            <div style={{marginBottom:16}}>
+              <label style={{fontSize:12,fontWeight:600,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.5px",display:"block",marginBottom:6}}>4-Digit PIN</label>
+              <input value={pin} onChange={function(e){setPin(e.target.value.replace(/[^0-9]/g,"").slice(0,4));setError("");}} onKeyDown={handleKey} type="password" inputMode="numeric" maxLength={4} placeholder="Enter PIN" autoFocus style={{display:"block",width:"100%",border:"1px solid #e2e8f0",borderRadius:8,padding:"12px 14px",fontSize:20,letterSpacing:8,outline:"none",boxSizing:"border-box",textAlign:"center"}}/>
+            </div>
+            {error&&<div style={{fontSize:13,color:"#ef4444",marginBottom:12,textAlign:"center"}}>{error}</div>}
+            <button onClick={tryLogin} disabled={pin.length!==4} style={{width:"100%",background:pin.length===4?"#0f172a":"#e2e8f0",color:pin.length===4?"#fff":"#94a3b8",border:"none",borderRadius:8,padding:"12px",fontSize:14,fontWeight:600,cursor:pin.length===4?"pointer":"default"}}>Sign In</button>
+            <button onClick={function(){setShowManage(true);}} style={{width:"100%",background:"none",border:"none",color:"#94a3b8",fontSize:12,cursor:"pointer",marginTop:12,padding:"4px"}}>Manage Users</button>
+          </div>
+        ) : (
+          <div style={{background:"#fff",borderRadius:12,padding:24,border:"1px solid #e2e8f0",boxShadow:"0 2px 8px rgba(0,0,0,0.06)"}}>
+            <div style={{fontSize:14,fontWeight:600,color:"#0f172a",marginBottom:4}}>Manage Users</div>
+            <div style={{fontSize:12,color:"#64748b",marginBottom:12}}>Enter Admin PIN (0000) to manage</div>
+            {!adminMode ? (
+              <div style={{display:"flex",gap:8,marginBottom:16}}>
+                <input value={adminPin} onChange={function(e){setAdminPin(e.target.value.replace(/[^0-9]/g,"").slice(0,4));}} type="password" inputMode="numeric" maxLength={4} placeholder="Admin PIN" style={{flex:1,border:"1px solid #e2e8f0",borderRadius:6,padding:"8px 10px",fontSize:14,outline:"none"}}/>
+                <button onClick={function(){if(adminPin===users.find(function(u){return u.name==="Admin";})&&users.find(function(u){return u.name==="Admin";}).pin||adminPin==="0000")setAdminMode(true);else setError("Wrong admin PIN");}} style={{background:"#0f172a",color:"#fff",border:"none",borderRadius:6,padding:"8px 14px",fontSize:13,cursor:"pointer"}}>Unlock</button>
+              </div>
+            ) : (
+              <div>
+                <div style={{marginBottom:12}}>
+                  {users.map(function(u){return (
+                    <div key={u.pin} style={{display:"flex",alignItems:"center",gap:8,padding:"8px 0",borderBottom:"1px solid #f1f5f9"}}>
+                      <span style={{flex:1,fontSize:13,fontWeight:500,color:"#0f172a"}}>{u.name}</span>
+                      <span style={{fontSize:12,color:"#94a3b8",fontFamily:"monospace"}}>{"****"}</span>
+                      {u.name!=="Admin"&&<button onClick={function(){removeUser(u.pin);}} style={{background:"none",border:"none",color:"#ef4444",cursor:"pointer",fontSize:12}}>Remove</button>}
+                    </div>
+                  );})}
+                </div>
+                <div style={{fontSize:12,fontWeight:600,color:"#0f172a",marginBottom:8}}>Add New User</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 80px",gap:8,marginBottom:8}}>
+                  <input value={newName} onChange={function(e){setNewName(e.target.value);}} placeholder="Name" style={{border:"1px solid #e2e8f0",borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none"}}/>
+                  <input value={newPin} onChange={function(e){setNewPin(e.target.value.replace(/[^0-9]/g,"").slice(0,4));}} type="password" inputMode="numeric" maxLength={4} placeholder="PIN" style={{border:"1px solid #e2e8f0",borderRadius:6,padding:"7px 10px",fontSize:13,outline:"none",textAlign:"center"}}/>
+                </div>
+                {error&&<div style={{fontSize:12,color:"#ef4444",marginBottom:8}}>{error}</div>}
+                <button onClick={addUser} disabled={!newName.trim()||newPin.length!==4} style={{width:"100%",background:"#0f172a",color:"#fff",border:"none",borderRadius:6,padding:"8px",fontSize:13,cursor:"pointer",marginBottom:8}}>Add User</button>
+              </div>
+            )}
+            <button onClick={function(){setShowManage(false);setAdminMode(false);setAdminPin("");setError("");}} style={{width:"100%",background:"none",border:"1px solid #e2e8f0",borderRadius:6,padding:"8px",fontSize:13,color:"#64748b",cursor:"pointer"}}>Back to Login</button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
 function HomeScreen(props) {
   const [name,setName]=useState("");
   const [company,setCompany]=useState("");
@@ -302,10 +438,12 @@ function HomeScreen(props) {
       <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"0 24px",display:"flex",alignItems:"center",height:56,gap:12}}>
         <span style={{fontWeight:700,fontSize:16,color:"#0f172a"}}>RenoMaterials</span>
         {props.saving&&<span style={{fontSize:12,color:"#94a3b8"}}>Saving...</span>}
-        <div style={{marginLeft:"auto",display:"flex",gap:8}}>
+        <div style={{marginLeft:"auto",display:"flex",gap:8,alignItems:"center"}}>
+          {props.currentUser&&<span style={{fontSize:12,color:"#64748b",fontWeight:500}}>{props.currentUser.name}</span>}
           <Btn ghost small onClick={function(){setShowSettings(function(v){return !v;});}} label="Settings"/>
           <Btn ghost small onClick={props.onVendors} label="Vendors"/>
           <Btn small onClick={function(){setShowForm(true);}} label="+ New Project"/>
+          <button onClick={props.onLogout} style={{background:"none",border:"1px solid #e2e8f0",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,color:"#64748b"}}>Sign Out</button>
         </div>
       </div>
       <div style={{maxWidth:760,margin:"0 auto",padding:"24px"}}>
@@ -431,7 +569,11 @@ function ProjectScreen(props) {
   ];
 
   const addItem=function(){var item=mkItem();updateActive(function(p){return Object.assign({},p,{items:[...p.items,item]});});setEditId(item.id);setTab("items");};
-  const updateItem=function(id,patch){updateActive(function(p){return Object.assign({},p,{items:p.items.map(function(it){return it.id===id?Object.assign({},it,patch):it;})});});};
+  const updateItem=function(id,patch){
+    var ts=new Date().toISOString();
+    var by=props.currentUser?props.currentUser.name:"Unknown";
+    updateActive(function(p){return Object.assign({},p,{items:p.items.map(function(it){return it.id===id?Object.assign({},it,patch,{updatedAt:ts,updatedBy:by}):it;})});});
+  };
   const deleteItem=function(id){updateActive(function(p){return Object.assign({},p,{items:p.items.filter(function(it){return it.id!==id;})});});if(editId===id)setEditId(null);};
 
   const handleFile=async function(e){
@@ -513,6 +655,7 @@ function ProjectScreen(props) {
         {tab==="items"&&(
           <div>
             <StatusSummary items={active.items}/>
+            <RecentChanges items={active.items}/>
             <div style={{display:"flex",alignItems:"center",gap:8,padding:"10px 0 6px",flexWrap:"wrap"}}>
               <input value={search} onChange={function(e){setSearch(e.target.value);}} placeholder="Search items..." style={{flex:1,minWidth:140,border:"1px solid #e2e8f0",borderRadius:6,padding:"6px 10px",fontSize:13,outline:"none",background:"#fff"}}/>
               <select value={sortBy} onChange={function(e){setSortBy(e.target.value);}} style={{border:"1px solid #e2e8f0",borderRadius:6,padding:"6px 8px",fontSize:12,color:"#64748b",background:"#fff",outline:"none"}}>
