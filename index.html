@@ -785,7 +785,7 @@ function ProjectScreen(props) {
               </div>
               <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:14}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
-                  <span style={{fontSize:13,fontWeight:600,color:"#0f172a"}}>Items ({selectedItems.length===active.items.length||selectedItems.length===0?active.items.length:selectedItems.length} selected)</span>
+                  <span style={{fontSize:13,fontWeight:600,color:"#0f172a"}}>Items ({selectedItems.length} selected)</span>
                   <button onClick={function(){
                     if(selectedItems.length===active.items.length){
                       setSelectedItems([]);
@@ -796,10 +796,10 @@ function ProjectScreen(props) {
                 </div>
                 <div style={{maxHeight:200,overflowY:"auto"}}>
                   {active.items.map(function(it){
-                    var checked=selectedItems.length===0||selectedItems.includes(it.id);
+                    var checked=selectedItems.includes(it.id);
                     return (
                       <label key={it.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",cursor:"pointer",borderBottom:"1px solid #f1f5f9"}}>
-                        <input type="checkbox" checked={checked} onChange={function(){if(selectedItems.length===0){setSelectedItems(active.items.map(function(x){return x.id;}).filter(function(x){return x!==it.id;}));}else{setSelectedItems(function(s){return s.includes(it.id)?s.filter(function(x){return x!==it.id;}):[...s,it.id];});}}} style={{accentColor:"#0f172a"}}/>
+                        <input type="checkbox" checked={checked} onChange={function(){setSelectedItems(function(s){return s.includes(it.id)?s.filter(function(x){return x!==it.id;}):[...s,it.id];});}} style={{accentColor:"#0f172a"}}/>
                         <div style={{flex:1,minWidth:0}}>
                           <div style={{fontSize:12,fontWeight:500,color:"#0f172a",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{it.material||"(no name)"}</div>
                           {it.room&&<div style={{fontSize:11,color:"#94a3b8"}}>{it.room}</div>}
