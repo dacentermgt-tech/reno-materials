@@ -369,24 +369,43 @@ function LoginScreen(props) {
 
   var addUser=function(){
     if(!newName.trim()||newPin.length!==4)return;
+    if(newName.trim()==="Admin"){setError("Cannot use name 'Admin'");return;}
     if(users.some(function(u){return u.pin===newPin;})){setError("PIN already in use");return;}
-    var updated=[...users,{name:newName.trim(),pin:newPin,hidden:false}];
+    var updated=[...users,{name:newName.trim(),pin:newPin}];
+    // Make sure Admin is always first
+    if(!updated.some(function(u){return u.name==="Admin";})){
+      updated=[{name:"Admin",pin:getAdmin()?getAdmin().pin:"0000"}].concat(updated);
+    }
     setUsers(updated);props.onSaveUsers(updated);
     setNewName("");setNewPin("");setError("");
   };
 
   var removeUser=function(p){
+    var toRemove=users.find(function(u){return u.pin===p;});
+    if(toRemove&&toRemove.name==="Admin"){alert("Cannot remove Admin user");return;}
     var updated=users.filter(function(u){return u.pin!==p;});
+    // Always keep Admin in list
+    if(!updated.some(function(u){return u.name==="Admin";})){
+      updated=[{name:"Admin",pin:getAdmin()?getAdmin().pin:"0000"}].concat(updated);
+    }
     setUsers(updated);props.onSaveUsers(updated);
   };
 
   var changeAdminPin=function(){
     if(newAdminPin.length!==4){setError("PIN must be 4 digits");return;}
     if(newAdminPin!==newAdminPin2){setError("PINs do not match");return;}
-    var updated=users.map(function(u){return u.name==="Admin"?Object.assign({},u,{pin:newAdminPin}):u;});
+    // Make sure Admin always stays in the list, just update pin
+    var hasAdmin=users.some(function(u){return u.name==="Admin";});
+    var updated;
+    if(hasAdmin){
+      updated=users.map(function(u){return u.name==="Admin"?Object.assign({},u,{pin:newAdminPin}):u;});
+    } else {
+      // Admin was missing - add it back with new pin
+      updated=[{name:"Admin",pin:newAdminPin}].concat(users);
+    }
     setUsers(updated);props.onSaveUsers(updated);
     setNewAdminPin("");setNewAdminPin2("");setError("");
-    alert("Admin PIN changed successfully!");
+    alert("Admin PIN changed to "+newAdminPin+" - please remember it!");
   };
 
   var nonAdminUsers=users.filter(function(u){return u.name!=="Admin";});
