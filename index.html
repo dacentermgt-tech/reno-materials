@@ -34,8 +34,8 @@ if (typeof window !== "undefined" && typeof window.storage === "undefined") {
 }
 
 const UNITS = ["each","sq ft","lin ft","cu ft","in","ft","yd","sq yd","lb","ton","gal","bag","box","sheet","roll","pallet"];
-const STATUS_OPTS = ["Draft","Ordered","Confirmed","Delivered"];
-const STATUS_CLR = {Draft:"#94a3b8",Ordered:"#f59e0b",Confirmed:"#3b82f6",Delivered:"#22c55e"};
+const STATUS_OPTS = ["Draft","Quoted","Ordered","Confirmed","Delivered"];
+const STATUS_CLR = {Draft:"#94a3b8",Quoted:"#b45309",Ordered:"#f59e0b",Confirmed:"#3b82f6",Delivered:"#22c55e"};
 const lbl = {fontSize:11,fontWeight:500,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.5px",display:"block",marginBottom:3};
 const inp = {display:"block",width:"100%",background:"#fff",border:"1px solid #e2e8f0",borderRadius:6,padding:"7px 9px",color:"#0f172a",fontSize:13,outline:"none",boxSizing:"border-box"};
 const bsty = {padding:"6px 14px",borderRadius:6,border:"none",cursor:"pointer",fontSize:12,fontWeight:500,display:"inline-flex",alignItems:"center"};
@@ -169,7 +169,7 @@ function FolderInput(props) {
 
 function StatusSummary(props) {
   var items=props.items;
-  var counts={Draft:0,Ordered:0,Confirmed:0,Delivered:0};
+  var counts={Draft:0,Quoted:0,Ordered:0,Confirmed:0,Delivered:0};
   items.forEach(function(it){if(counts[it.status]!==undefined)counts[it.status]++;});
   var total=items.length;
   if(!total)return null;
@@ -598,6 +598,7 @@ function ProjectScreen(props) {
   const [selectedItems,setSelectedItems]=useState([]);
   const [selectedContacts,setSelectedContacts]=useState([]);
   const [emailCopied,setEmailCopied]=useState(false);
+  const [quoteMarked,setQuoteMarked]=useState(false);
   const [showContactForm,setShowContactForm]=useState(false);
   const [showVendorPicker,setShowVendorPicker]=useState(false);
   const [contactForm,setContactForm]=useState({name:"",email:"",type:"vendor"});
@@ -785,7 +786,13 @@ function ProjectScreen(props) {
               <div style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:14}}>
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                   <span style={{fontSize:13,fontWeight:600,color:"#0f172a"}}>Items ({selectedItems.length===active.items.length||selectedItems.length===0?active.items.length:selectedItems.length} selected)</span>
-                  <button onClick={function(){setSelectedItems(function(s){return s.length===active.items.length?[]:active.items.map(function(it){return it.id;});});}} style={{fontSize:12,color:"#64748b",background:"none",border:"none",cursor:"pointer"}}>{selectedItems.length===active.items.length?"Deselect all":"Select all"}</button>
+                  <button onClick={function(){
+                    if(selectedItems.length===active.items.length){
+                      setSelectedItems([]);
+                    } else {
+                      setSelectedItems(active.items.map(function(it){return it.id;}));
+                    }
+                  }} style={{fontSize:12,color:"#64748b",background:"none",border:"none",cursor:"pointer"}}>{selectedItems.length===active.items.length?"Deselect all":"Select all"}</button>
                 </div>
                 <div style={{maxHeight:200,overflowY:"auto"}}>
                   {active.items.map(function(it){
@@ -809,6 +816,19 @@ function ProjectScreen(props) {
                 <div style={{display:"flex",gap:8}}>
                   <button onClick={function(){var r=active.contacts.filter(function(c){return selectedContacts.includes(c.id);});var to=r.map(function(c){return c.email;}).join(";");window.location.href="mailto:"+to+"?subject="+encodeURIComponent("Quote Request - "+active.name)+"&body="+encodeURIComponent(emailText);}} style={Object.assign({},bsty,{background:"#0f172a",color:"#fff"})}>Open in Outlook</button>
                   <button onClick={function(){copyText(emailText);setEmailCopied(true);setTimeout(function(){setEmailCopied(false);},2000);}} style={Object.assign({},bsty,{background:emailCopied?"#22c55e":"#f1f5f9",color:emailCopied?"#fff":"#0f172a"})}>{emailCopied?"Copied!":"Copy"}</button>
+                  <button onClick={function(){
+                    var ids=selectedItems.length?selectedItems:active.items.map(function(it){return it.id;});
+                    var ts=new Date().toISOString();
+                    var by=props.currentUser?props.currentUser.name:"Unknown";
+                    ids.forEach(function(id){
+                      var it=active.items.find(function(x){return x.id===id;});
+                      if(it&&it.status==="Draft"){
+                        updateItem(id,{status:"Quoted",updatedAt:ts,updatedBy:by});
+                      }
+                    });
+                    setQuoteMarked(true);
+                    setTimeout(function(){setQuoteMarked(false);},2500);
+                  }} style={Object.assign({},bsty,{background:quoteMarked?"#b45309":"#fef3e2",color:quoteMarked?"#fff":"#b45309",border:"1px solid #fde68a",whiteSpace:"nowrap"})}>{quoteMarked?"Marked!":"Mark as Quoted"}</button>
                 </div>
               </div>
               <pre style={{fontFamily:"monospace",fontSize:12,lineHeight:1.6,color:"#374151",whiteSpace:"pre-wrap",wordBreak:"break-word",background:"#f8fafc",borderRadius:6,padding:12,border:"1px solid #e2e8f0",maxHeight:320,overflowY:"auto",margin:0}}>{emailText||"Select recipients and items above to preview."}</pre>
