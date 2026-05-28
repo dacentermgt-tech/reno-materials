@@ -34,8 +34,8 @@ if (typeof window !== "undefined" && typeof window.storage === "undefined") {
 }
 
 const UNITS = ["each","sq ft","lin ft","cu ft","in","ft","yd","sq yd","lb","ton","gal","bag","box","sheet","roll","pallet"];
-const STATUS_OPTS = ["Draft","Quoted","Ordered","Confirmed","Delivered","Lordes"];
-const STATUS_CLR = {Draft:"#94a3b8",Quoted:"#b45309",Ordered:"#f59e0b",Confirmed:"#3b82f6",Delivered:"#22c55e",Lordes:"#8b5cf6"};
+const STATUS_OPTS = ["Draft","Ready to Quote","Quoted","Ordered","Confirmed","Delivered","Lordes"];
+const STATUS_CLR = {Draft:"#94a3b8","Ready to Quote":"#0891b2",Quoted:"#b45309",Ordered:"#f59e0b",Confirmed:"#3b82f6",Delivered:"#22c55e",Lordes:"#8b5cf6"};
 const lbl = {fontSize:11,fontWeight:500,color:"#64748b",textTransform:"uppercase",letterSpacing:"0.5px",display:"block",marginBottom:3};
 const inp = {display:"block",width:"100%",background:"#fff",border:"1px solid #e2e8f0",borderRadius:6,padding:"7px 9px",color:"#0f172a",fontSize:13,outline:"none",boxSizing:"border-box"};
 const bsty = {padding:"6px 14px",borderRadius:6,border:"none",cursor:"pointer",fontSize:12,fontWeight:500,display:"inline-flex",alignItems:"center"};
@@ -169,20 +169,22 @@ function FolderInput(props) {
 
 function StatusSummary(props) {
   var items=props.items;
-  var counts={Draft:0,Quoted:0,Ordered:0,Confirmed:0,Delivered:0,Lordes:0};
+  var counts={Draft:0,"Ready to Quote":0,Quoted:0,Ordered:0,Confirmed:0,Delivered:0,Lordes:0};
   items.forEach(function(it){if(counts[it.status]!==undefined)counts[it.status]++;});
   var total=items.length;
   if(!total)return null;
+  var nonZero=Object.entries(counts).filter(function(e){return e[1]>0;});
+  if(!nonZero.length)return null;
   return (
-    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,padding:"12px 0 4px"}}>
-      {Object.entries(counts).map(function(entry){
+    <div style={{display:"flex",flexWrap:"wrap",gap:8,padding:"12px 0 4px"}}>
+      {nonZero.map(function(entry){
         var status=entry[0];var count=entry[1];
         var sc=STATUS_CLR[status]||"#94a3b8";
         var pct=total>0?Math.round(count/total*100):0;
         return (
-          <div key={status} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:"10px 10px 8px",borderTop:"3px solid "+sc}}>
+          <div key={status} style={{flex:"1 1 80px",minWidth:80,background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:"10px 10px 8px",borderTop:"3px solid "+sc}}>
             <div style={{fontSize:18,fontWeight:700,color:"#0f172a"}}>{count}</div>
-            <div style={{fontSize:10,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.5px"}}>{status}</div>
+            <div style={{fontSize:10,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.5px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{status}</div>
             <div style={{marginTop:4,height:3,borderRadius:2,background:"#f1f5f9"}}>
               <div style={{width:pct+"%",height:"100%",borderRadius:2,background:sc}}></div>
             </div>
@@ -284,7 +286,7 @@ function FilteredItems(props) {
       var av=(a[sortCol]||"").toLowerCase();
       var bv=(b[sortCol]||"").toLowerCase();
       if(sortCol==="status"){
-        var order=["Draft","Quoted","Ordered","Confirmed","Delivered","Lordes"];
+        var order=["Draft","Ready to Quote","Quoted","Ordered","Confirmed","Delivered","Lordes"];
         av=order.indexOf(a[sortCol]||"Draft");
         bv=order.indexOf(b[sortCol]||"Draft");
         return sortDir==="asc"?av-bv:bv-av;
@@ -642,7 +644,14 @@ function ProjectScreen(props) {
   const updateItem=function(id,patch){
     var ts=new Date().toISOString();
     var by=props.currentUser?props.currentUser.name:"Unknown";
-    updateActive(function(p){return Object.assign({},p,{items:p.items.map(function(it){return it.id===id?Object.assign({},it,patch,{updatedAt:ts,updatedBy:by}):it;})});});
+    updateActive(function(p){return Object.assign({},p,{items:p.items.map(function(it){
+      if(it.id!==id)return it;
+      var merged=Object.assign({},it,patch,{updatedAt:ts,updatedBy:by});
+      if("qty" in patch && patch.qty && String(patch.qty).trim() && (it.status==="Draft")){
+        merged.status="Ready to Quote";
+      }
+      return merged;
+    })});});
   };
   const deleteItem=function(id){updateActive(function(p){return Object.assign({},p,{items:p.items.filter(function(it){return it.id!==id;})});});if(editId===id)setEditId(null);};
 
@@ -693,7 +702,7 @@ function ProjectScreen(props) {
       </div>
       <div style={{background:"#fff",borderBottom:"1px solid #e2e8f0",padding:"0 20px",display:"flex",alignItems:"center",gap:0,overflowX:"auto"}}>
         {["items","financial","email","contacts"].map(function(tabId){return (
-          <button key={tabId} onClick={function(){setTab(tabId);if(tabId==="email")setSelectedItems(active.items.filter(function(it){return it.status==="Draft";}).map(function(it){return it.id;}));}} style={{padding:"10px 14px",border:"none",borderBottom:tab===tabId?"2px solid #0f172a":"2px solid transparent",background:"none",cursor:"pointer",fontSize:13,fontWeight:tab===tabId?600:400,color:tab===tabId?"#0f172a":"#64748b",whiteSpace:"nowrap"}}>
+          <button key={tabId} onClick={function(){setTab(tabId);if(tabId==="email")setSelectedItems(active.items.filter(function(it){return it.status==="Draft"||it.status==="Ready to Quote";}).map(function(it){return it.id;}));}} style={{padding:"10px 14px",border:"none",borderBottom:tab===tabId?"2px solid #0f172a":"2px solid transparent",background:"none",cursor:"pointer",fontSize:13,fontWeight:tab===tabId?600:400,color:tab===tabId?"#0f172a":"#64748b",whiteSpace:"nowrap"}}>
             {tabId==="items"?"Items ("+active.items.length+")":tabId==="financial"?"Financial":tabId==="email"?"Quote Email":"Contacts ("+active.contacts.length+")"}
           </button>
         );})}
@@ -804,16 +813,16 @@ function ProjectScreen(props) {
                 <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
                   <span style={{fontSize:13,fontWeight:600,color:"#0f172a"}}>Items ({selectedItems.length} selected)</span>
                   <button onClick={function(){
-                    var draftIds=active.items.filter(function(it){return it.status==="Draft";}).map(function(it){return it.id;});
+                    var draftIds=active.items.filter(function(it){return it.status==="Draft"||it.status==="Ready to Quote";}).map(function(it){return it.id;});
                     if(selectedItems.length===draftIds.length&&draftIds.every(function(id){return selectedItems.includes(id);})){
                       setSelectedItems([]);
                     } else {
                       setSelectedItems(draftIds);
                     }
-                  }} style={{fontSize:12,color:"#64748b",background:"none",border:"none",cursor:"pointer"}}>{selectedItems.length>0&&selectedItems.length===active.items.filter(function(it){return it.status==="Draft";}).length?"Deselect all":"Select all"}</button>
+                  }} style={{fontSize:12,color:"#64748b",background:"none",border:"none",cursor:"pointer"}}>{selectedItems.length>0&&selectedItems.length===active.items.filter(function(it){return it.status==="Draft"||it.status==="Ready to Quote";}).length?"Deselect all":"Select all"}</button>
                 </div>
                 <div style={{maxHeight:200,overflowY:"auto"}}>
-                  {active.items.filter(function(it){return it.status==="Draft"||selectedItems.includes(it.id);}).map(function(it){
+                  {active.items.filter(function(it){return it.status==="Draft"||it.status==="Ready to Quote"||selectedItems.includes(it.id);}).map(function(it){
                     var checked=selectedItems.includes(it.id);
                     return (
                       <label key={it.id} style={{display:"flex",alignItems:"center",gap:8,padding:"5px 0",cursor:"pointer",borderBottom:"1px solid #f1f5f9"}}>
