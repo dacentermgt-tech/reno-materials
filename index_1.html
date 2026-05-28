@@ -173,16 +173,18 @@ function StatusSummary(props) {
   items.forEach(function(it){if(counts[it.status]!==undefined)counts[it.status]++;});
   var total=items.length;
   if(!total)return null;
+  var nonZero=Object.entries(counts).filter(function(e){return e[1]>0;});
+  if(!nonZero.length)return null;
   return (
-    <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,padding:"12px 0 4px"}}>
-      {Object.entries(counts).map(function(entry){
+    <div style={{display:"flex",flexWrap:"wrap",gap:8,padding:"12px 0 4px"}}>
+      {nonZero.map(function(entry){
         var status=entry[0];var count=entry[1];
         var sc=STATUS_CLR[status]||"#94a3b8";
         var pct=total>0?Math.round(count/total*100):0;
         return (
-          <div key={status} style={{background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:"10px 10px 8px",borderTop:"3px solid "+sc}}>
+          <div key={status} style={{flex:"1 1 80px",minWidth:80,background:"#fff",border:"1px solid #e2e8f0",borderRadius:8,padding:"10px 10px 8px",borderTop:"3px solid "+sc}}>
             <div style={{fontSize:18,fontWeight:700,color:"#0f172a"}}>{count}</div>
-            <div style={{fontSize:10,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.5px"}}>{status}</div>
+            <div style={{fontSize:10,color:"#94a3b8",textTransform:"uppercase",letterSpacing:"0.5px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{status}</div>
             <div style={{marginTop:4,height:3,borderRadius:2,background:"#f1f5f9"}}>
               <div style={{width:pct+"%",height:"100%",borderRadius:2,background:sc}}></div>
             </div>
