@@ -326,7 +326,18 @@ function App() {
 
   useEffect(function(){
     (async function(){
-      try{var res=await window.storage.list("proj:");if(res&&res.keys.length){var loaded=[];for(var i=0;i<res.keys.length;i++){try{var r=await window.storage.get(res.keys[i]);if(r)loaded.push(JSON.parse(r.value));}catch(e){}}loaded.sort(function(a,b){return new Date(b.updatedAt)-new Date(a.updatedAt);});setProjects(loaded);}}catch(e){}
+      try{
+  var allDocs=await db.collection("storage").get();
+  var loaded=[];
+  allDocs.forEach(function(doc){
+    var k=doc.data().key||doc.id;
+    if(k&&k.startsWith("proj:")){
+      try{loaded.push(JSON.parse(doc.data().value));}catch(e){}
+    }
+  });
+  loaded.sort(function(a,b){return new Date(b.updatedAt)-new Date(a.updatedAt);});
+  if(loaded.length)setProjects(loaded);
+}catch(e){console.error("Project load error:",e);}
       try{var v=await window.storage.get("global:vendors");if(v)setVendors(JSON.parse(v.value));}catch(e){}
       try{var k=await window.storage.get("global:apikey");if(k)setApiKey(k.value);}catch(e){}
       try{var vc=await window.storage.get("global:viscols");if(vc)setSavedCols(JSON.parse(vc.value));}catch(e){}
