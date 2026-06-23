@@ -1154,7 +1154,9 @@ function PhotoUpload(props) {
     </div>
   );
 }
+window.addEventListener('error',function(e){document.getElementById('root').innerHTML='<div style="padding:20px;font-family:monospace;font-size:12px;color:red;white-space:pre-wrap">ERROR: '+e.message+'\nLine: '+e.lineno+'</div>';});
+class EB extends React.Component{constructor(p){super(p);this.state={e:null};}componentDidCatch(e){this.setState({e:e.message});}static getDerivedStateFromError(e){return{e:e.message};}render(){if(this.state.e)return React.createElement('div',{style:{padding:20,color:'red',fontFamily:'monospace',fontSize:12}},'ERROR: '+this.state.e);return this.props.children;}}
 const root=ReactDOM.createRoot(document.getElementById("root"));
-root.render(<App/>);
+root.render(React.createElement(EB,null,React.createElement(App,null)));
 </script>
 </body></html>
