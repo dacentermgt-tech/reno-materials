@@ -20,7 +20,7 @@ window.storage={
   get:async function(k){try{var d=await db.collection(COLL).doc(ekey(k)).get();if(!d.exists)return null;return{key:k,value:d.data().value};}catch(e){return null;}},
   set:async function(k,v){try{await db.collection(COLL).doc(ekey(k)).set({key:k,value:v,ts:Date.now()});return{key:k,value:v};}catch(e){return null;}},
   "delete":async function(k){try{await db.collection(COLL).doc(ekey(k)).delete();return{key:k,deleted:true};}catch(e){return null;}},
-  list:async function(p){try{var q=db.collection(COLL);if(p)q=q.where("key",">=",p).where("key","<",p+"\uf8ff");var s=await q.get();return{keys:s.docs.map(function(d){return d.data().key;}).filter(function(k){return !p||k.startsWith(p);})};}catch(e){return{keys:[]};}}
+  list:async function(p){try{var q=db.collection(COLL);if(p){try{var qs=await q.where("key",">=",p).where("key","<",p+"\uf8ff").get();var keys=qs.docs.map(function(d){return d.data().key;}).filter(function(k){return !p||k.startsWith(p);});if(keys.length>0)return{keys:keys};}catch(e){}}var s=await q.get();return{keys:s.docs.map(function(d){return d.data().key;}).filter(function(k){return !p||k.startsWith(p);})};}catch(e){return{keys:[]};}}
 };</script>
 <script type="text/babel">
 const {useState,useEffect,useRef,useCallback}=React;
@@ -329,7 +329,7 @@ function App() {
       try{var v=await window.storage.get("global:vendors");if(v)setVendors(JSON.parse(v.value));}catch(e){}
       try{var k=await window.storage.get("global:apikey");if(k)setApiKey(k.value);}catch(e){}
       try{var vc=await window.storage.get("global:viscols");if(vc)setSavedCols(JSON.parse(vc.value));}catch(e){}
-      try{var ul=await window.storage.get("global:users");if(ul){var parsed=JSON.parse(ul.value);if(parsed&&parsed.length)DEFAULT_USERS=parsed;}}catch(e){}
+      try{var ul=await window.storage.get("global:users");if(ul){var parsed=JSON.parse(ul.value);if(parsed&&parsed.length)setUsers(parsed);}}catch(e){}
       setLoading(false);
       try{var params=new URLSearchParams(window.location.search);var pid=params.get("project");if(pid){setActiveId(pid);setScreen("project");}}catch(e){}
     })();
@@ -349,7 +349,7 @@ function App() {
   },[activeId]);
 
   if(loading)return <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"system-ui",color:"#64748b",fontSize:14}}>Loading...</div>;
-  if(!currentUser)return <LoginScreen users={DEFAULT_USERS} onLogin={function(user){setCurrentUser(user);}} onSaveUsers={async function(users){DEFAULT_USERS=users;try{await window.storage.set("global:users",JSON.stringify(users));}catch(e){}}} apiKey={apiKey}/>;
+  if(!currentUser)return <LoginScreen users={users} onLogin={function(user){setCurrentUser(user);}} onSaveUsers={async function(newUsers){setUsers(newUsers);try{await window.storage.set("global:users",JSON.stringify(newUsers));}catch(e){}}} apiKey={apiKey}/>;
   if(screen==="vendors")return <VendorsScreen vendors={vendors} onBack={function(){setScreen("home");}} onChange={function(v){setVendors(v);persistVendors(v);}}/>;
   if(screen==="project"&&active)return <ProjectScreen active={active} vendors={vendors} saving={saving} apiKey={apiKey} savedCols={savedCols} onSaveVisibleCols={saveVisibleCols} currentUser={currentUser} onBack={function(){try{window.history.pushState({},"",window.location.pathname);}catch(e){}setScreen("home");}} updateActive={updateActive}/>;
   return <HomeScreen projects={projects} saving={saving} apiKey={apiKey} currentUser={currentUser} onLogout={function(){setCurrentUser(null);}} onSaveApiKey={saveApiKey} onVendors={function(){setScreen("vendors");}} onOpen={function(id){setActiveId(id);setScreen("project");try{window.history.pushState({},"",window.location.pathname+"?project="+id);}catch(e){}}} onCreateProject={function(name,company){var p=mkProject(name,company);setProjects(function(prev){return [p,...prev];});persist(p);setActiveId(p.id);setScreen("project");try{window.history.pushState({},"",window.location.pathname+"?project="+p.id);}catch(e){}}} onDeleteProject={async function(id){try{await window.storage.delete("proj:"+id);}catch(e){}setProjects(function(prev){return prev.filter(function(p){return p.id!==id;});});}}/>;
